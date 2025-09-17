@@ -1,0 +1,28 @@
+# Django
+*.log
+*.pot
+*.pyc
+__pycache__/
+staticfiles/
+media/
+db.sqlite3
+
+# Pipenv
+Pipfile.lock
+
+# macOS
+.DS_Store
+
+# VS Code
+.vscode/
+
+# Env
+.env
+
+# Migrations
+**/migrations/*
+!**/migrations/__init__.py
+
+# Other
+*.sqlite3
+*.env
