@@ -48,7 +48,7 @@ class SigninView(APIView):
     Returns: success message or validation errors
     """
 
-    @swagger_auto_schema(k
+    @swagger_auto_schema(
         request_body=SigninSerializer,
         responses={
             200: openapi.Response(
