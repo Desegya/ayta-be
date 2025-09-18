@@ -1,4 +1,4 @@
-# Add at the end of the file
+
 
 # Django REST Framework settings
 REST_FRAMEWORK = {
@@ -22,6 +22,11 @@ from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Media files
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
+# Add at the end of the file
 
 
 # Quick-start development settings - unsuitable for production

@@ -7,6 +7,10 @@ class FoodItem(models.Model):
         ("lean", "Lean"),
         ("dense", "Dense"),
     ]
+    CATEGORY_CHOICES = [
+        ("breakfast", "Breakfast"),
+        ("lunch_dinner", "Lunch & Dinner"),
+    ]
     name = models.CharField(max_length=100)
     price = models.DecimalField(max_digits=8, decimal_places=2)
     description = models.TextField()
@@ -16,6 +20,8 @@ class FoodItem(models.Model):
     carbohydrates = models.FloatField(help_text="g Carbohydrates")
     fat = models.FloatField(help_text="g Fat")
     food_type = models.CharField(max_length=10, choices=FOOD_TYPE_CHOICES)
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES)
+    image = models.ImageField(upload_to="food_images/", blank=True, null=True)
 
     def __str__(self):
         return self.name
@@ -32,7 +38,8 @@ class MealPlan(models.Model):
     meals = models.ManyToManyField(FoodItem, blank=True)
 
     def __str__(self):
-        return self.get_name_display()
+        # Silence Pylance warning for get_name_display
+        return getattr(self, "get_name_display", lambda: str(self.name))()
 
 
 class UserMealPlan(models.Model):
@@ -49,7 +56,29 @@ class UserMealPlan(models.Model):
 
 
 # Cart and CartItem models
+
+
+class CartItem(models.Model):
+    cart = models.ForeignKey("Cart", related_name="items", on_delete=models.CASCADE)
+    food_item = models.ForeignKey(FoodItem, on_delete=models.CASCADE)
+    quantity = models.PositiveIntegerField(default=1)
+
+    def __str__(self):
+        return f"{self.quantity} x {self.food_item.name}"
+
+    @property
+    def total_price(self):
+        return self.food_item.price * self.quantity
+
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .models import CartItem
+
+
 class Cart(models.Model):
+    items: models.Manager["CartItem"]  # type: ignore
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -64,16 +93,3 @@ class Cart(models.Model):
     @property
     def total_calories(self):
         return sum(item.food_item.calories * item.quantity for item in self.items.all())
-
-
-class CartItem(models.Model):
-    cart = models.ForeignKey(Cart, related_name="items", on_delete=models.CASCADE)
-    food_item = models.ForeignKey(FoodItem, on_delete=models.CASCADE)
-    quantity = models.PositiveIntegerField(default=1)
-
-    def __str__(self):
-        return f"{self.quantity} x {self.food_item.name}"
-
-    @property
-    def total_price(self):
-        return self.food_item.price * self.quantity

@@ -1,3 +1,5 @@
+from typing import Any, Dict, cast
+from django.contrib.auth.base_user import AbstractBaseUser
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -32,13 +34,15 @@ class SignupView(APIView):
     )
     def post(self, request):
         serializer = SignupSerializer(data=request.data)
-        if serializer.is_valid():
-            user = serializer.save()
-            login(request, user)
-            return Response(
-                {"message": "Signup successful."}, status=status.HTTP_201_CREATED
-            )
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        # Will raise ValidationError which DRF turns into a 400 response
+        serializer.is_valid(raise_exception=True)
+
+        validated_data = cast(Dict[str, Any], serializer.validated_data)
+        user = cast(AbstractBaseUser, validated_data["user"])
+        login(request, user)
+        return Response(
+            {"message": "Signup successful."}, status=status.HTTP_201_CREATED
+        )
 
 
 class SigninView(APIView):
@@ -64,34 +68,37 @@ class SigninView(APIView):
     )
     def post(self, request):
         serializer = SigninSerializer(data=request.data)
-        if serializer.is_valid():
-            user = serializer.validated_data["user"]
-            login(request, user)
+        # Will raise ValidationError which DRF turns into a 400 response
+        serializer.is_valid(raise_exception=True)
 
-            # Generate JWT tokens
-            from rest_framework_simplejwt.tokens import RefreshToken
+        # Tell the type checker validated_data is a dict
+        validated_data = cast(Dict[str, Any], serializer.validated_data)
+        user = validated_data["user"]
+        login(request, user)
 
-            refresh = RefreshToken.for_user(user)
-            access_token = str(refresh.access_token)
-            refresh_token = str(refresh)
+        # Generate JWT tokens
+        from rest_framework_simplejwt.tokens import RefreshToken
 
-            response = Response(
-                {"message": "Signin successful."}, status=status.HTTP_200_OK
-            )
-            # Set httpOnly cookies
-            response.set_cookie(
-                key="access_token",
-                value=access_token,
-                httponly=True,
-                secure=False,  # Set to True in production with HTTPS
-                samesite="Lax",
-            )
-            response.set_cookie(
-                key="refresh_token",
-                value=refresh_token,
-                httponly=True,
-                secure=False,  # Set to True in production with HTTPS
-                samesite="Lax",
-            )
-            return response
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        refresh = RefreshToken.for_user(user)
+        access_token = str(refresh.access_token)
+        refresh_token = str(refresh)
+
+        response = Response(
+            {"message": "Signin successful."}, status=status.HTTP_200_OK
+        )
+        # Set httpOnly cookies
+        response.set_cookie(
+            key="access_token",
+            value=access_token,
+            httponly=True,
+            secure=False,  # Set to True in production with HTTPS
+            samesite="Lax",
+        )
+        response.set_cookie(
+            key="refresh_token",
+            value=refresh_token,
+            httponly=True,
+            secure=False,  # Set to True in production with HTTPS
+            samesite="Lax",
+        )
+        return response

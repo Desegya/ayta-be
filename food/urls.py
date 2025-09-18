@@ -8,6 +8,10 @@ from .views import (
     AddToCartView,
     RemoveFromCartView,
     CheckoutView,
+    MealPlanByTypeView,
+    MealsByTypeCategoryView,
+    CustomMealSelectionView,
+    AdminDefinedMealsByDayView,
 )
 
 urlpatterns = [
@@ -19,4 +23,20 @@ urlpatterns = [
     path("cart/add/", AddToCartView.as_view(), name="add-to-cart"),
     path("cart/remove/", RemoveFromCartView.as_view(), name="remove-from-cart"),
     path("cart/checkout/", CheckoutView.as_view(), name="cart-checkout"),
+    path("plans/by-type/", MealPlanByTypeView.as_view(), name="plans-by-type"),
+    path(
+        "plans/admin-meals-by-day/",
+        AdminDefinedMealsByDayView.as_view(),
+        name="admin-defined-meals-by-day",
+    ),
+    path(
+        "meals/by-type-category/",
+        MealsByTypeCategoryView.as_view(),
+        name="meals-by-type-category",
+    ),
+    path(
+        "meals/custom-selection/",
+        CustomMealSelectionView.as_view(),
+        name="custom-meal-selection",
+    ),
 ]

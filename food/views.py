@@ -1,9 +1,82 @@
+from collections import defaultdict
+from rest_framework.views import APIView
+from rest_framework.response import Response
+
+
+class AdminDefinedMealsByDayView(APIView):
+    """
+    Returns admin-defined meals for a given plan type (lean/dense) and size (15/21).
+    Groups meals by day.
+    Query params: type=lean|dense, size=15|21
+    """
+
+    def get(self, request):
+        plan_type = request.GET.get("type")
+        size = int(request.GET.get("size", 15))
+        # Find the correct MealPlan
+        if size == 15:
+            plan_name = "15_meals_5_days"
+            days = 5
+        else:
+            plan_name = "21_meals_7_days"
+            days = 7
+        plan = MealPlan.objects.filter(
+            name=plan_name, meals__food_type=plan_type
+        ).first()
+        if not plan:
+            return Response({"error": "No such plan found."}, status=404)
+        # Get meals and group by day (assume admin assigns meals in order)
+        meals = plan.meals.filter(food_type=plan_type).order_by("id")
+        meals_per_day = size // days
+        grouped = defaultdict(list)
+        for i, meal in enumerate(meals):
+            day = (i // meals_per_day) + 1
+            grouped[day].append(FoodItemSerializer(meal).data)
+        return Response({"days": grouped})
+
+
 from rest_framework import generics, status, permissions
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from .models import FoodItem, Cart, CartItem
+from .models import FoodItem, Cart, CartItem, MealPlan
 from .serializers import FoodItemListSerializer, FoodItemDetailSerializer
 from .cart_serializers import CartSerializer, CartItemSerializer
+from .plan_serializers import MealPlanSerializer, FoodItemSerializer
+
+
+class MealPlanByTypeView(generics.ListAPIView):
+    serializer_class = MealPlanSerializer
+
+    def get_queryset(self):
+        plan_type = self.request.GET.get("type")
+        return MealPlan.objects.filter(meals__food_type=plan_type).distinct()
+
+
+class MealsByTypeCategoryView(generics.ListAPIView):
+    serializer_class = FoodItemSerializer
+
+    def get_queryset(self):
+        food_type = self.request.GET.get("type")
+        category = self.request.GET.get("category")
+        qs = FoodItem.objects.all()
+        if food_type:
+            qs = qs.filter(food_type=food_type)
+        if category:
+            qs = qs.filter(category=category)
+        return qs
+
+
+class CustomMealSelectionView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        meal_ids = request.data.get("meal_ids", [])
+        if len(meal_ids) < 15:
+            return Response({"error": "Minimum 15 meals required."}, status=400)
+        meals = FoodItem.objects.filter(id__in=meal_ids)
+        return Response({"selected_meals": FoodItemSerializer(meals, many=True).data})
+
+
 from django.shortcuts import get_object_or_404
 import requests
 
