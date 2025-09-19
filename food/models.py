@@ -1,9 +1,10 @@
 from typing import TYPE_CHECKING
-
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils.text import slugify
+from decimal import Decimal
+from django.db.models.manager import Manager
 
 
 # ---------- FoodItem unchanged ----------
@@ -129,21 +130,62 @@ class CartItem(models.Model):
     cart = models.ForeignKey("Cart", related_name="items", on_delete=models.CASCADE)
     food_item = models.ForeignKey(FoodItem, on_delete=models.CASCADE)
     quantity = models.PositiveIntegerField(default=1)
+    # if set, this item belongs to a particular CartPlan (group)
+    cart_plan = models.ForeignKey(
+        "CartPlan",
+        null=True,
+        blank=True,
+        related_name="items",
+        on_delete=models.CASCADE,
+    )
+
+    class Meta:
+        # allow same food_item appearing once per cart_plan (so same FoodItem in a plan and as custom item are distinct)
+        unique_together = ("cart", "food_item", "cart_plan")
 
     def __str__(self):
-        return f"{self.quantity} x {self.food_item.name}"
+        return f"{self.quantity} x {self.food_item.name} ({'plan' if self.cart_plan else 'custom'})"
 
     @property
     def total_price(self):
         return self.food_item.price * self.quantity
 
 
-if TYPE_CHECKING:
-    from .models import CartItem
+class CartPlan(models.Model):
+    """
+    Represents a MealPlan instance added to a Cart (one Cart can have multiple CartPlan entries).
+    We snapshot price = plan.price (if the admin sets a plan price). If plan.price is null,
+    we'll compute from the items.
+    """
+
+    cart = models.ForeignKey("Cart", related_name="plans", on_delete=models.CASCADE)
+    meal_plan = models.ForeignKey(MealPlan, on_delete=models.PROTECT)
+    quantity = models.PositiveSmallIntegerField(default=1)
+    # optional snapshot price (admin may prefer a fixed plan price)
+    price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.meal_plan} x{self.quantity} in {self.cart}"
+
+    def computed_price(self) -> Decimal:
+        """
+        Return price for this CartPlan: prefer snapshot `price`, otherwise sum meal prices.
+        """
+        if self.price is not None:
+            return self.price * self.quantity
+        # sum current meal prices (sum of children items' food_item.price * their quantities)
+        # note: children items are created with quantity normally 1, but we support generality
+        items_total = sum(
+            (item.food_item.price * item.quantity)
+            for item in CartItem.objects.filter(cart=self.cart)
+        )
+        return Decimal(items_total) * Decimal(self.quantity)
 
 
 class Cart(models.Model):
     items: models.Manager["CartItem"]  # type: ignore
+    plans: Manager["CartPlan"]
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -153,8 +195,15 @@ class Cart(models.Model):
 
     @property
     def total_price(self):
-        return sum(item.total_price for item in self.items.all())
+        # Sum plan-level totals first (CartPlan may have snapshot price)
+        plan_total = sum(plan.computed_price() for plan in self.plans.all())
+        # Sum of custom items only (items where cart_plan is None)
+        custom_total = sum(
+            item.total_price for item in self.items.filter(cart_plan__isnull=True)
+        )
+        return plan_total + custom_total
 
     @property
     def total_calories(self):
+        # Return total calories across all items (plan or custom)
         return sum(item.food_item.calories * item.quantity for item in self.items.all())

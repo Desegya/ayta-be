@@ -1,20 +1,22 @@
 from django.urls import path
 from .views import (
+    AddCustomSelectionView,
+    AddPlanToCartView,
     FoodItemListView,
     LeanFoodItemListView,
     DenseFoodItemListView,
     FoodItemDetailView,
     CartView,
-    AddToCartView,
     RemoveFromCartView,
     CheckoutView,
     MealPlanByTypeView,
     MealsByTypeCategoryView,
     CustomMealSelectionView,
     AdminDefinedMealsByDayView,
-    dense_meal_plans,
-    lean_meal_plans,
-    meal_plan_meals,
+    DenseMealPlansView,
+    LeanMealPlansView,
+    MealPlanMealsView,
+    UpdateCustomCartItemView,
 )
 
 urlpatterns = [
@@ -23,8 +25,18 @@ urlpatterns = [
     path("meals/dense/", DenseFoodItemListView.as_view(), name="dense-meal-list"),
     path("meals/<int:pk>/", FoodItemDetailView.as_view(), name="meal-detail"),
     path("cart/", CartView.as_view(), name="cart-view"),
-    path("cart/add/", AddToCartView.as_view(), name="add-to-cart"),
-    path("cart/remove/", RemoveFromCartView.as_view(), name="remove-from-cart"),
+    path("cart/add-plan/", AddPlanToCartView.as_view(), name="add-plan-to-cart"),
+    path(
+        "cart/custom-selection/",
+        AddCustomSelectionView.as_view(),
+        name="add-custom-selection",
+    ),
+    path(
+        "cart/custom-item/",
+        UpdateCustomCartItemView.as_view(),
+        name="update-custom-cart-item",
+    ),
+    path("cart/remove-item/", RemoveFromCartView.as_view(), name="remove-from-cart"),
     path("cart/checkout/", CheckoutView.as_view(), name="cart-checkout"),
     path("plans/by-type/", MealPlanByTypeView.as_view(), name="plans-by-type"),
     path(
@@ -42,7 +54,9 @@ urlpatterns = [
         CustomMealSelectionView.as_view(),
         name="custom-meal-selection",
     ),
-    path("plans/dense/", dense_meal_plans, name="dense-meal-plans"),
-    path("plans/lean/", lean_meal_plans, name="lean-meal-plans"),
-    path("plans/<slug:slug>/meals/", meal_plan_meals, name="meal-plan-meals"),
+    path("plans/dense/", DenseMealPlansView.as_view(), name="dense-meal-plans"),
+    path("plans/lean/", LeanMealPlansView.as_view(), name="lean-meal-plans"),
+    path(
+        "plans/<slug:slug>/meals/", MealPlanMealsView.as_view(), name="meal-plan-meals"
+    ),
 ]
