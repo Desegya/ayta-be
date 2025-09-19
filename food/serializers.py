@@ -5,7 +5,15 @@ from .models import FoodItem
 class FoodItemListSerializer(serializers.ModelSerializer):
     class Meta:
         model = FoodItem
-        fields = ["id", "name", "calories", "price"]
+        fields = [
+            "id",
+            "name",
+            "calories",
+            "price",
+            "image",
+            "food_type",
+            "category",
+        ]
 
 
 class FoodItemDetailSerializer(serializers.ModelSerializer):
@@ -22,4 +30,6 @@ class FoodItemDetailSerializer(serializers.ModelSerializer):
             "carbohydrates",
             "fat",
             "food_type",
+            "category",
+            "image",
         ]
