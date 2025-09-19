@@ -12,6 +12,9 @@ from .views import (
     MealsByTypeCategoryView,
     CustomMealSelectionView,
     AdminDefinedMealsByDayView,
+    dense_meal_plans,
+    lean_meal_plans,
+    meal_plan_meals,
 )
 
 urlpatterns = [
@@ -39,4 +42,7 @@ urlpatterns = [
         CustomMealSelectionView.as_view(),
         name="custom-meal-selection",
     ),
+    path("plans/dense/", dense_meal_plans, name="dense-meal-plans"),
+    path("plans/lean/", lean_meal_plans, name="lean-meal-plans"),
+    path("plans/<slug:slug>/meals/", meal_plan_meals, name="meal-plan-meals"),
 ]

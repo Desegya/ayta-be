@@ -7,10 +7,10 @@ name = "pypi"
 django = "*"
 djangorestframework = "*"
 djangorestframework-simplejwt = "*"
-drf-yasg = "*"
 requests = "*"
 django-cors-headers = "*"
 pillow = "*"
+drf-yasg = "*"
 
 [dev-packages]
 

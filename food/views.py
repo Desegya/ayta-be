@@ -1,6 +1,17 @@
 from collections import defaultdict
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework import generics, status, permissions
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from .models import FoodItem, Cart, CartItem, MealPlan
+from .serializers import FoodItemListSerializer, FoodItemDetailSerializer
+from .cart_serializers import CartSerializer, CartItemSerializer
+from .plan_serializers import (
+    FoodItemSerializer,
+    MealPlanSimpleSerializer,
+)
+from rest_framework.decorators import api_view
 
 
 class AdminDefinedMealsByDayView(APIView):
@@ -35,17 +46,34 @@ class AdminDefinedMealsByDayView(APIView):
         return Response({"days": grouped})
 
 
-from rest_framework import generics, status, permissions
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from .models import FoodItem, Cart, CartItem, MealPlan
-from .serializers import FoodItemListSerializer, FoodItemDetailSerializer
-from .cart_serializers import CartSerializer, CartItemSerializer
-from .plan_serializers import MealPlanSerializer, FoodItemSerializer
+@api_view(["GET"])
+def meal_plan_meals(request, slug):
+    plan = MealPlan.objects.filter(slug=slug).first()
+    if not plan:
+        return Response({"error": "Meal plan not found."}, status=404)
+    plan_serializer = MealPlanSimpleSerializer(plan)
+    meals = plan.meals.all()
+    meals_serializer = FoodItemSerializer(meals, many=True)
+    return Response({"meal_plan": plan_serializer.data, "meals": meals_serializer.data})
+
+
+@api_view(["GET"])
+def dense_meal_plans(request):
+    plans = MealPlan.objects.filter(density="dense")
+    serializer = MealPlanSimpleSerializer(plans, many=True)
+    return Response(serializer.data)
+
+
+# Endpoint for lean meal plans
+@api_view(["GET"])
+def lean_meal_plans(request):
+    plans = MealPlan.objects.filter(density="lean")
+    serializer = MealPlanSimpleSerializer(plans, many=True)
+    return Response(serializer.data)
 
 
 class MealPlanByTypeView(generics.ListAPIView):
-    serializer_class = MealPlanSerializer
+    serializer_class = MealPlanSimpleSerializer
 
     def get_queryset(self):
         plan_type = self.request.GET.get("type")
