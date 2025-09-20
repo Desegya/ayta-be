@@ -209,6 +209,11 @@ class AddPlanToCartView(APIView):
         merge = bool(request.data.get("merge", False))
 
         meal_plan = get_object_or_404(MealPlan, id=plan_id)
+        if meal_plan.meals.count() == 0:
+            return Response(
+                {"error": "Cannot add a meal plan with no meals to cart."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         cart, _ = Cart.objects.get_or_create(user=request.user)
 
         # If merging into an existing CartPlan for the same MealPlan is desired, do it.

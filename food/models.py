@@ -170,15 +170,13 @@ class CartPlan(models.Model):
 
     def computed_price(self) -> Decimal:
         """
-        Return price for this CartPlan: prefer snapshot `price`, otherwise sum meal prices.
+        Return price for this CartPlan: prefer snapshot `price`, otherwise sum meal prices for this plan only.
         """
         if self.price is not None:
             return self.price * self.quantity
-        # sum current meal prices (sum of children items' food_item.price * their quantities)
-        # note: children items are created with quantity normally 1, but we support generality
         items_total = sum(
             (item.food_item.price * item.quantity)
-            for item in CartItem.objects.filter(cart=self.cart)
+            for item in CartItem.objects.filter(cart_plan=self)
         )
         return Decimal(items_total) * Decimal(self.quantity)
 
