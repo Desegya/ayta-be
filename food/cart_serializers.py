@@ -7,10 +7,21 @@ class CartItemSerializer(serializers.ModelSerializer):
     price = serializers.DecimalField(
         source="food_item.price", max_digits=10, decimal_places=2, read_only=True
     )
+    calories = serializers.IntegerField(source="food_item.calories", read_only=True)
+    image = serializers.ImageField(source="food_item.image", read_only=True)
 
     class Meta:
         model = CartItem
-        fields = ["id", "food_item", "food_name", "quantity", "price", "cart_plan"]
+        fields = [
+            "id",
+            "food_item",
+            "food_name",
+            "quantity",
+            "price",
+            "calories",
+            "image",
+            "cart_plan",
+        ]
 
 
 class CartPlanSerializer(serializers.ModelSerializer):
