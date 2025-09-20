@@ -5,7 +5,7 @@ from .models import MealPlan, FoodItem
 class MealPlanSimpleSerializer(serializers.ModelSerializer):
     class Meta:
         model = MealPlan
-        fields = ["meal_count", "description", "days", "slug"]
+        fields = ["id", "meal_count", "description", "days", "slug"]
 
 
 class FoodItemSerializer(serializers.ModelSerializer):

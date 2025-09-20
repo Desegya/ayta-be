@@ -1,19 +1,24 @@
+from django.contrib.auth import logout
 from typing import Any, Dict, cast
 from django.contrib.auth.base_user import AbstractBaseUser
+from django.shortcuts import get_object_or_404
+from django.contrib.auth import login
 from rest_framework.views import APIView
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework import status
-from django.contrib.auth import login
-from .serializers import SignupSerializer, SigninSerializer
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
+from rest_framework.permissions import AllowAny
+from .serializers import SignupSerializer, SigninSerializer
+from .models import User  # concrete User model
 
 
 class SignupView(APIView):
     """
     User signup endpoint.
     Accepts: full_name, phone_number, email, password, confirm_password
-    Returns: success message or validation errors
+    Returns: success message and sets JWT cookies (access + refresh).
     """
 
     @swagger_auto_schema(
@@ -34,22 +39,47 @@ class SignupView(APIView):
     )
     def post(self, request):
         serializer = SignupSerializer(data=request.data)
-        # Will raise ValidationError which DRF turns into a 400 response
         serializer.is_valid(raise_exception=True)
 
-        validated_data = cast(Dict[str, Any], serializer.validated_data)
-        user = cast(AbstractBaseUser, validated_data["user"])
+        # IMPORTANT: use serializer.save() to create the User instance
+        created_user = serializer.save()  # returns the created User instance
+        user = cast(User, created_user)  # <- satisfy Pylance / type checker
+
+        # Optionally log the user into the session (if using session auth)
         login(request, user)
-        return Response(
+
+        # Issue JWT tokens immediately after signup
+        from rest_framework_simplejwt.tokens import RefreshToken
+
+        refresh = RefreshToken.for_user(user)
+        access_token = str(refresh.access_token)
+        refresh_token = str(refresh)
+
+        response = Response(
             {"message": "Signup successful."}, status=status.HTTP_201_CREATED
         )
+        response.set_cookie(
+            key="access_token",
+            value=access_token,
+            httponly=True,
+            secure=False,  # set True in production
+            samesite="Lax",
+        )
+        response.set_cookie(
+            key="refresh_token",
+            value=refresh_token,
+            httponly=True,
+            secure=False,  # set True in production
+            samesite="Lax",
+        )
+        return response
 
 
 class SigninView(APIView):
     """
     User signin endpoint.
     Accepts: email, password
-    Returns: success message or validation errors
+    Returns: success message and sets JWT cookies.
     """
 
     @swagger_auto_schema(
@@ -68,15 +98,14 @@ class SigninView(APIView):
     )
     def post(self, request):
         serializer = SigninSerializer(data=request.data)
-        # Will raise ValidationError which DRF turns into a 400 response
         serializer.is_valid(raise_exception=True)
 
-        # Tell the type checker validated_data is a dict
         validated_data = cast(Dict[str, Any], serializer.validated_data)
-        user = validated_data["user"]
+        user = cast(User, validated_data["user"])  # <- cast here for type checker
+
+        # Optionally log into session (if using session auth)
         login(request, user)
 
-        # Generate JWT tokens
         from rest_framework_simplejwt.tokens import RefreshToken
 
         refresh = RefreshToken.for_user(user)
@@ -86,19 +115,38 @@ class SigninView(APIView):
         response = Response(
             {"message": "Signin successful."}, status=status.HTTP_200_OK
         )
-        # Set httpOnly cookies
         response.set_cookie(
             key="access_token",
             value=access_token,
             httponly=True,
-            secure=False,  # Set to True in production with HTTPS
+            secure=False,  # set True in production with HTTPS
             samesite="Lax",
         )
         response.set_cookie(
             key="refresh_token",
             value=refresh_token,
             httponly=True,
-            secure=False,  # Set to True in production with HTTPS
+            secure=False,  # set True in production with HTTPS
             samesite="Lax",
         )
+        return response
+
+
+class SignoutView(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    """
+    User signout endpoint.
+    Removes JWT cookies and logs out the user.
+    """
+
+    def post(self, request):
+        # Log out user from session (if using session auth)
+        logout(request)
+        response = Response(
+            {"message": "Signout successful."}, status=status.HTTP_200_OK
+        )
+        response.delete_cookie("access_token")
+        response.delete_cookie("refresh_token")
         return response
