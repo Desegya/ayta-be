@@ -1,9 +1,6 @@
 from django.urls import path
 from .views import CookieTokenRefreshView, SignupView, SigninView, SignoutView
-from rest_framework_simplejwt.views import (
-    TokenObtainPairView,
-    TokenRefreshView,
-)
+from rest_framework_simplejwt.views import TokenObtainPairView
 
 urlpatterns = [
     path("signup/", SignupView.as_view(), name="signup"),
