@@ -10,10 +10,9 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from .models import CartPlan, FoodItem, Cart, CartItem, MealPlan
 from .serializers import FoodItemListSerializer, FoodItemDetailSerializer
-from .cart_serializers import CartSerializer, CartItemSerializer
+from .cart_serializers import CartSerializer
 from .plan_serializers import FoodItemSerializer, MealPlanSimpleSerializer
 from decimal import Decimal
-from django.utils.dateparse import parse_date  # (we keep import only if used elsewhere)
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, permissions
