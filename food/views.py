@@ -12,6 +12,11 @@ from .models import CartPlan, FoodItem, Cart, CartItem, MealPlan
 from .serializers import FoodItemListSerializer, FoodItemDetailSerializer
 from .cart_serializers import CartSerializer, CartItemSerializer
 from .plan_serializers import FoodItemSerializer, MealPlanSimpleSerializer
+from decimal import Decimal
+from django.utils.dateparse import parse_date  # (we keep import only if used elsewhere)
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status, permissions
 
 
 class AdminDefinedMealsByDayView(APIView):
@@ -479,3 +484,148 @@ class CheckoutView(APIView):
         if response.status_code in (200, 201):
             return Response(response.json(), status=status.HTTP_200_OK)
         return Response(response.json(), status=response.status_code)
+
+
+def _ordinal(n: int) -> str:
+    # keeps helper if you ever reuse it elsewhere; not used for start_date now
+    if 10 <= (n % 100) <= 20:
+        suf = "th"
+    else:
+        suf = {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
+    return f"{n}{suf}"
+
+
+def _format_currency(amount: Decimal) -> str:
+    amt = int(amount) if amount == amount.quantize(Decimal("1")) else float(amount)
+    return f"₦{amt:,}"
+
+
+class OrderSummaryView(APIView):
+    """
+    GET or POST /cart/summary/
+    Returns receipt-like order summary for the current user's cart.
+
+    Rules:
+    - If cart contains exactly one CartPlan and zero custom items => package_type = plan density (Lean/Dense)
+      and plan_duration is included.
+    - Otherwise package_type = "custom" and plan_duration is omitted.
+    - total_meals is the total number of individual meals in the cart:
+        sum(mp.meal_count * mp.days * cart_plan.quantity for each cart_plan)
+        + sum(quantity of each custom item)
+    """
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        return self._get_summary(request)
+
+    def post(self, request):
+        return self._get_summary(request)
+
+    def _get_summary(self, request):
+        cart, _ = Cart.objects.get_or_create(user=request.user)
+
+        cart_plans = list(cart.plans.select_related("meal_plan").all())
+        custom_items_qs = cart.items.filter(cart_plan__isnull=True).select_related(
+            "food_item"
+        )
+
+        # Determine package type & whether to include plan duration
+        if len(cart_plans) == 1 and custom_items_qs.count() == 0:
+            plan = cart_plans[0].meal_plan
+            package_type = (
+                plan.get_density_display()
+                if hasattr(plan, "get_density_display")
+                else (plan.density or "custom")
+            )
+            include_plan_duration = True
+            plan_duration = f"{plan.days} Days"
+        else:
+            package_type = "custom"
+            include_plan_duration = False
+            plan_duration = None
+
+        # Totals
+        total_meals = 0
+        total_calories = Decimal(0)
+        total_protein = Decimal(0)
+        total_carbs = Decimal(0)
+        total_fat = Decimal(0)
+
+        # Plans: compute counts and macros
+        for cart_plan in cart_plans:
+            mp = cart_plan.meal_plan
+            qty_multiplier = cart_plan.quantity or 1
+
+            # total meals contributed by this cart_plan
+            plan_total_meals = (mp.meal_count or 0) * (mp.days or 0) * qty_multiplier
+            total_meals += plan_total_meals
+
+            # sum macros for one cycle (all meals listed in mp.meals), then scale by days and quantity
+            meals_qs = mp.meals.all()
+            cycle_cal = sum((m.calories or 0) for m in meals_qs)
+            cycle_prot = sum(Decimal(getattr(m, "protein", 0) or 0) for m in meals_qs)
+            cycle_carbs = sum(
+                Decimal(getattr(m, "carbohydrates", 0) or 0) for m in meals_qs
+            )
+            cycle_fat = sum(Decimal(getattr(m, "fat", 0) or 0) for m in meals_qs)
+
+            total_calories += (
+                Decimal(cycle_cal) * Decimal(mp.days or 0) * Decimal(qty_multiplier)
+            )
+            total_protein += (
+                Decimal(cycle_prot) * Decimal(mp.days or 0) * Decimal(qty_multiplier)
+            )
+            total_carbs += (
+                Decimal(cycle_carbs) * Decimal(mp.days or 0) * Decimal(qty_multiplier)
+            )
+            total_fat += (
+                Decimal(cycle_fat) * Decimal(mp.days or 0) * Decimal(qty_multiplier)
+            )
+
+        # Custom items: add counts and macros
+        for item in custom_items_qs:
+            fi = item.food_item
+            qty = item.quantity or 1
+            total_meals += qty
+            total_calories += Decimal(getattr(fi, "calories", 0) or 0) * Decimal(qty)
+            total_protein += Decimal(getattr(fi, "protein", 0) or 0) * Decimal(qty)
+            total_carbs += Decimal(getattr(fi, "carbohydrates", 0) or 0) * Decimal(qty)
+            total_fat += Decimal(getattr(fi, "fat", 0) or 0) * Decimal(qty)
+
+        # Money: prefer cart.total_price property; fallback to manual compute
+        try:
+            cart_total = Decimal(cart.total_price)
+        except Exception:
+            plan_total = sum((cp.computed_price() for cp in cart_plans), Decimal(0))
+            custom_total = sum(
+                (item.food_item.price * item.quantity for item in custom_items_qs),
+                Decimal(0),
+            )
+            cart_total = plan_total + custom_total
+
+        plan_total_amt = sum((cp.computed_price() for cp in cart_plans), Decimal(0))
+
+        # Build response
+        resp = {
+            "receipt_for": getattr(request.user, "username", str(request.user)),
+            "package_type": package_type,
+            "total_meals": f"{total_meals} meals",
+            "total_macros": {
+                "calories": (
+                    f"{int(total_calories):,} calories"
+                    if total_calories == total_calories.quantize(Decimal("1"))
+                    else f"{float(total_calories):,} calories"
+                ),
+                "protein": f"{total_protein} g Protein",
+                "carbohydrates": f"{total_carbs} g Carbohydrates",
+                "fat": f"{total_fat} g Fat",
+            },
+            "total_meals_fee": _format_currency(plan_total_amt),
+            "total": _format_currency(cart_total),
+        }
+
+        if include_plan_duration and plan_duration:
+            resp["plan_duration"] = plan_duration
+
+        return Response(resp, status=status.HTTP_200_OK)

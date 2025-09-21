@@ -9,6 +9,8 @@ class CartItemSerializer(serializers.ModelSerializer):
     )
     calories = serializers.IntegerField(source="food_item.calories", read_only=True)
     image = serializers.ImageField(source="food_item.image", read_only=True)
+    food_type = serializers.CharField(source="food_item.food_type", read_only=True)
+    category = serializers.CharField(source="food_item.category", read_only=True)
 
     class Meta:
         model = CartItem
@@ -20,6 +22,8 @@ class CartItemSerializer(serializers.ModelSerializer):
             "price",
             "calories",
             "image",
+            "food_type",
+            "category",
             "cart_plan",
         ]
 

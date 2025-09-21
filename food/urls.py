@@ -7,6 +7,7 @@ from .views import (
     DenseFoodItemListView,
     FoodItemDetailView,
     CartView,
+    OrderSummaryView,
     RemoveFromCartView,
     CheckoutView,
     MealPlanByTypeView,
@@ -38,6 +39,7 @@ urlpatterns = [
     ),
     path("cart/remove-item/", RemoveFromCartView.as_view(), name="remove-from-cart"),
     path("cart/checkout/", CheckoutView.as_view(), name="cart-checkout"),
+    path("cart/summary/", OrderSummaryView.as_view(), name="cart-summary"),
     path("plans/by-type/", MealPlanByTypeView.as_view(), name="plans-by-type"),
     path(
         "plans/admin-meals-by-day/",
