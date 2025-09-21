@@ -1,3 +1,5 @@
+from rest_framework_simplejwt.views import TokenRefreshView
+from rest_framework import status
 from django.contrib.auth import logout
 from typing import Any, Dict, cast
 from django.contrib.auth.base_user import AbstractBaseUser
@@ -149,4 +151,26 @@ class SignoutView(APIView):
         )
         response.delete_cookie("access_token")
         response.delete_cookie("refresh_token")
+        return response
+
+
+class CookieTokenRefreshView(TokenRefreshView):
+    def post(self, request, *args, **kwargs):
+        refresh_token = request.COOKIES.get("refresh_token")
+        if not refresh_token:
+            return Response(
+                {"detail": "No refresh token in cookies."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        request.data["refresh"] = refresh_token
+        response = super().post(request, *args, **kwargs)
+        # If refresh was successful, set new access token in cookie
+        if response.status_code == 200 and "access" in response.data:
+            response.set_cookie(
+                key="access_token",
+                value=response.data["access"],
+                httponly=True,
+                secure=False,  # set True in production
+                samesite="Lax",
+            )
         return response
