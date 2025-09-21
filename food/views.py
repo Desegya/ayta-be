@@ -1,5 +1,6 @@
 from collections import defaultdict
 from typing import Any, Dict
+from django.conf import settings
 from django.http import Http404
 from django.shortcuts import get_object_or_404
 from django.db import transaction
@@ -9,10 +10,10 @@ from rest_framework import generics, status, permissions
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from .models import CartPlan, FoodItem, Cart, CartItem, MealPlan
-from .serializers import FoodItemListSerializer, FoodItemDetailSerializer
+from .serializers import CheckoutSerializer, FoodItemListSerializer, FoodItemDetailSerializer
 from .cart_serializers import CartSerializer
 from .plan_serializers import FoodItemSerializer, MealPlanSimpleSerializer
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, permissions
@@ -462,27 +463,114 @@ class CheckoutView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
-        cart, _ = Cart.objects.get_or_create(user=request.user)
-        try:
-            amount = int(cart.total_price * 100)  # Paystack expects amount in kobo
-        except Exception:
+        """
+        Expects JSON body:
+        {
+          "full_name": "John Doe",
+          "address": "12 Broad St, Lagos",
+          "phone_number": "+2348012345678",
+          "email": "john@example.com"   # optional, falls back to request.user.email
+        }
+
+        Returns Paystack initialize response (authorization_url, reference etc.)
+        """
+        serializer = CheckoutSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        # prefer provided email, otherwise user's email
+        email = data.get("email") or getattr(request.user, "email", None)
+        if not email:
             return Response(
-                {"error": "Unable to compute amount for checkout."},
+                {"error": "Email is required either in payload or on the user account."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        email = request.user.email
+        # get cart and compute amount
+        cart, _ = Cart.objects.get_or_create(user=request.user)
+
+        # ensure there's something in cart
+        # you can use cart.total_price property, but ensure it's Decimal
+        try:
+            cart_total = Decimal(cart.total_price)
+        except Exception:
+            return Response(
+                {"error": "Unable to compute cart total."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if cart_total <= 0:
+            return Response(
+                {"error": "Cart is empty."}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # convert to kobo (integer)
+        try:
+            # multiply by 100 and quantize to whole kobo before int() for safety
+            amount_kobo = int((cart_total * Decimal("100")).quantize(Decimal("1")))
+        except (InvalidOperation, TypeError):
+            return Response(
+                {"error": "Invalid cart total amount."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # build Paystack request
+        PAYSTACK_KEY = getattr(settings, "PAYSTACK_SECRET_KEY", None)
+        if not PAYSTACK_KEY:
+            return Response(
+                {"error": "Paystack secret key not configured in settings.PAYSTACK_SECRET_KEY."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        url = "https://api.paystack.co/transaction/initialize"
         headers = {
-            "Authorization": "Bearer sk_test_36122e15ca8bf97f2bb6ea6e59b91cb9d44da295",
+            "Authorization": f"Bearer {PAYSTACK_KEY}",
             "Content-Type": "application/json",
         }
-        data = {"email": email, "amount": amount}
-        response = requests.post(
-            "https://api.paystack.co/transaction/initialize", json=data, headers=headers
-        )
-        if response.status_code in (200, 201):
-            return Response(response.json(), status=status.HTTP_200_OK)
-        return Response(response.json(), status=response.status_code)
+
+        # Put buyer details inside metadata so you can read them when verifying the transaction.
+        payload = {
+            "email": email,
+            "amount": amount_kobo,
+            "metadata": {
+                "customer": {
+                    "full_name": data["full_name"],
+                    "address": data["address"],
+                    "phone_number": data["phone_number"],
+                    "user_id": getattr(request.user, "id", None),
+                },
+                # optional: include a snapshot of cart totals for cross-checking
+                "cart_snapshot": {
+                    "plan_total": str(getattr(cart, "plan_total_amount", "") or ""),
+                    "custom_total": str(getattr(cart, "custom_items_total", "") or ""),
+                    "grand_total": str(cart_total),
+                },
+            },
+        }
+
+        try:
+            resp = requests.post(url, json=payload, headers=headers, timeout=15)
+        except requests.RequestException as exc:
+            return Response(
+                {"error": "Failed to contact payment gateway.", "detail": str(exc)},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+        # forward Paystack response (status codes and body)
+        try:
+            resp_data = resp.json()
+        except ValueError:
+            return Response(
+                {"error": "Invalid response from payment gateway."},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+        # 200 or 201 indicates initialization OK
+        if resp.status_code in (200, 201):
+            return Response(resp_data, status=status.HTTP_200_OK)
+
+        # forward any error details returned by Paystack
+        return Response(resp_data, status=resp.status_code)
 
 
 def _ordinal(n: int) -> str:
