@@ -2,8 +2,6 @@ from rest_framework_simplejwt.views import TokenRefreshView
 from rest_framework import status
 from django.contrib.auth import logout
 from typing import Any, Dict, cast
-from django.contrib.auth.base_user import AbstractBaseUser
-from django.shortcuts import get_object_or_404
 from django.contrib.auth import login
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny
