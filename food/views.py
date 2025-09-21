@@ -1,16 +1,21 @@
 from collections import defaultdict
-from typing import Any, Dict
+from typing import Any, Dict, cast
 from django.conf import settings
 from django.http import Http404
 from django.shortcuts import get_object_or_404
 from django.db import transaction
 import requests
+from rest_framework.request import Request
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import generics, status, permissions
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from .models import CartPlan, FoodItem, Cart, CartItem, MealPlan
-from .serializers import CheckoutSerializer, FoodItemListSerializer, FoodItemDetailSerializer
+from .serializers import (
+    CheckoutSerializer,
+    FoodItemListSerializer,
+    FoodItemDetailSerializer,
+)
 from .cart_serializers import CartSerializer
 from .plan_serializers import FoodItemSerializer, MealPlanSimpleSerializer
 from decimal import Decimal, InvalidOperation
@@ -462,37 +467,39 @@ class RemoveFromCartView(APIView):
 class CheckoutView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
-    def post(self, request):
+    def post(self, request: Request) -> Response:
         """
         Expects JSON body:
         {
           "full_name": "John Doe",
           "address": "12 Broad St, Lagos",
           "phone_number": "+2348012345678",
-          "email": "john@example.com"   # optional, falls back to request.user.email
+          "email": "john@example.com"   # optional
         }
-
-        Returns Paystack initialize response (authorization_url, reference etc.)
         """
+
         serializer = CheckoutSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        data = serializer.validated_data
+
+        # Tell the type checker this is a dict
+        data: Dict[str, Any] = cast(Dict[str, Any], serializer.validated_data)
 
         # prefer provided email, otherwise user's email
         email = data.get("email") or getattr(request.user, "email", None)
         if not email:
             return Response(
-                {"error": "Email is required either in payload or on the user account."},
+                {
+                    "error": "Email is required either in payload or on the user account."
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         # get cart and compute amount
         cart, _ = Cart.objects.get_or_create(user=request.user)
 
-        # ensure there's something in cart
-        # you can use cart.total_price property, but ensure it's Decimal
+        # ensure there's something in cart (convert to Decimal safely)
         try:
-            cart_total = Decimal(cart.total_price)
+            cart_total = Decimal(str(getattr(cart, "total_price", "0")))
         except Exception:
             return Response(
                 {"error": "Unable to compute cart total."},
@@ -506,7 +513,6 @@ class CheckoutView(APIView):
 
         # convert to kobo (integer)
         try:
-            # multiply by 100 and quantize to whole kobo before int() for safety
             amount_kobo = int((cart_total * Decimal("100")).quantize(Decimal("1")))
         except (InvalidOperation, TypeError):
             return Response(
@@ -518,7 +524,9 @@ class CheckoutView(APIView):
         PAYSTACK_KEY = getattr(settings, "PAYSTACK_SECRET_KEY", None)
         if not PAYSTACK_KEY:
             return Response(
-                {"error": "Paystack secret key not configured in settings.PAYSTACK_SECRET_KEY."},
+                {
+                    "error": "Paystack secret key not configured in settings.PAYSTACK_SECRET_KEY."
+                },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
@@ -528,18 +536,16 @@ class CheckoutView(APIView):
             "Content-Type": "application/json",
         }
 
-        # Put buyer details inside metadata so you can read them when verifying the transaction.
         payload = {
             "email": email,
             "amount": amount_kobo,
             "metadata": {
                 "customer": {
-                    "full_name": data["full_name"],
-                    "address": data["address"],
-                    "phone_number": data["phone_number"],
+                    "full_name": data.get("full_name"),
+                    "address": data.get("address"),
+                    "phone_number": data.get("phone_number"),
                     "user_id": getattr(request.user, "id", None),
                 },
-                # optional: include a snapshot of cart totals for cross-checking
                 "cart_snapshot": {
                     "plan_total": str(getattr(cart, "plan_total_amount", "") or ""),
                     "custom_total": str(getattr(cart, "custom_items_total", "") or ""),
@@ -550,26 +556,21 @@ class CheckoutView(APIView):
 
         try:
             resp = requests.post(url, json=payload, headers=headers, timeout=15)
+            resp_data = resp.json()
         except requests.RequestException as exc:
             return Response(
                 {"error": "Failed to contact payment gateway.", "detail": str(exc)},
                 status=status.HTTP_502_BAD_GATEWAY,
             )
-
-        # forward Paystack response (status codes and body)
-        try:
-            resp_data = resp.json()
         except ValueError:
             return Response(
                 {"error": "Invalid response from payment gateway."},
                 status=status.HTTP_502_BAD_GATEWAY,
             )
 
-        # 200 or 201 indicates initialization OK
         if resp.status_code in (200, 201):
             return Response(resp_data, status=status.HTTP_200_OK)
 
-        # forward any error details returned by Paystack
         return Response(resp_data, status=resp.status_code)
 
 
