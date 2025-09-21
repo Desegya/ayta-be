@@ -34,6 +34,7 @@ class FoodItemDetailSerializer(serializers.ModelSerializer):
             "image",
         ]
 
+
 class CheckoutSerializer(serializers.Serializer):
     full_name = serializers.CharField(max_length=255)
     address = serializers.CharField(max_length=1024)
