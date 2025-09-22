@@ -48,3 +48,16 @@ class SigninSerializer(serializers.Serializer):
             )
         data["user"] = user
         return data
+
+
+# --- User Profile Serializer ---
+class UserProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ["full_name", "phone_number", "email"]
+        read_only_fields = ["email"]
+
+# --- Change Password Serializer ---
+class ChangePasswordSerializer(serializers.Serializer):
+    old_password = serializers.CharField(required=True)
+    new_password = serializers.CharField(required=True)

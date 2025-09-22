@@ -1,9 +1,13 @@
+from .serializers import ChangePasswordSerializer
+from .serializers import UserProfileSerializer
+from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.views import TokenRefreshView
 from rest_framework import status
 from django.contrib.auth import logout
 from typing import Any, Dict, cast
 from django.contrib.auth import login
 from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework import status
@@ -172,3 +176,40 @@ class CookieTokenRefreshView(TokenRefreshView):
                 samesite="Lax",
             )
         return response
+
+
+class UserProfileView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        serializer = UserProfileSerializer(request.user)
+        return Response(serializer.data)
+
+
+class UserProfileEditView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request):
+        serializer = UserProfileSerializer(
+            request.user, data=request.data, partial=True
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
+
+# --- Change Password Endpoint ---
+class ChangePasswordView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = ChangePasswordSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = request.user
+        old_password = serializer.validated_data["old_password"]
+        new_password = serializer.validated_data["new_password"]
+        if not user.check_password(old_password):
+            return Response({"error": "Old password is incorrect."}, status=400)
+        user.set_password(new_password)
+        user.save()
+        return Response({"message": "Password changed successfully."})
