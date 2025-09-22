@@ -1,5 +1,4 @@
 from django.urls import path
-
 from food.paystack_verify import paystack_verify_redirect
 from .views import (
     AddCustomSelectionView,
@@ -19,6 +18,7 @@ from .views import (
     DenseMealPlansView,
     LeanMealPlansView,
     MealPlanMealsView,
+    TotalCartMealsView,
     UpdateCustomCartItemView,
     UserPastOrdersView,
 )
@@ -41,6 +41,7 @@ urlpatterns = [
         UpdateCustomCartItemView.as_view(),
         name="update-custom-cart-item",
     ),
+    path("cart/total-meals/", TotalCartMealsView.as_view(), name="total-cart-meals"),
     path("cart/remove-item/", RemoveFromCartView.as_view(), name="remove-from-cart"),
     path("cart/checkout/", CheckoutView.as_view(), name="cart-checkout"),
     path("cart/summary/", OrderSummaryView.as_view(), name="cart-summary"),
