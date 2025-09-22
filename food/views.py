@@ -4,13 +4,23 @@ from django.conf import settings
 from django.http import Http404
 from django.shortcuts import get_object_or_404
 from django.db import transaction
+from django.urls import reverse
 import requests
 from rest_framework.request import Request
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import generics, status, permissions
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from .models import CartPlan, FoodItem, Cart, CartItem, MealPlan
+from .models import (
+    CartPlan,
+    FoodItem,
+    Cart,
+    CartItem,
+    MealPlan,
+    Order,
+    OrderItem,
+    PaymentTransaction,
+)
 from .serializers import (
     CheckoutSerializer,
     FoodItemListSerializer,
@@ -18,10 +28,12 @@ from .serializers import (
 )
 from .cart_serializers import CartSerializer
 from .plan_serializers import FoodItemSerializer, MealPlanSimpleSerializer
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, permissions
+
+PAYSTACK_INIT_URL = "https://api.paystack.co/transaction/initialize"
 
 
 class AdminDefinedMealsByDayView(APIView):
@@ -465,113 +477,152 @@ class RemoveFromCartView(APIView):
 
 
 class CheckoutView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsAuthenticated]
 
-    def post(self, request: Request) -> Response:
-        """
-        Expects JSON body:
-        {
-          "full_name": "John Doe",
-          "address": "12 Broad St, Lagos",
-          "phone_number": "+2348012345678",
-          "email": "john@example.com"   # optional
-        }
-        """
-
+    def post(self, request):
+        # parse payload (you already have CheckoutSerializer — reuse it)
         serializer = CheckoutSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
 
-        # Tell the type checker this is a dict
-        data: Dict[str, Any] = cast(Dict[str, Any], serializer.validated_data)
-
-        # prefer provided email, otherwise user's email
-        email = data.get("email") or getattr(request.user, "email", None)
-        if not email:
-            return Response(
-                {
-                    "error": "Email is required either in payload or on the user account."
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        # get cart and compute amount
         cart, _ = Cart.objects.get_or_create(user=request.user)
+        if not cart.items.exists() and not cart.plans.exists():
+            return Response({"error": "Cart empty"}, status=status.HTTP_400_BAD_REQUEST)
 
-        # ensure there's something in cart (convert to Decimal safely)
-        try:
-            cart_total = Decimal(str(getattr(cart, "total_price", "0")))
-        except Exception:
-            return Response(
-                {"error": "Unable to compute cart total."},
-                status=status.HTTP_400_BAD_REQUEST,
+        # compute totals from cart (or reuse your cart.total_price)
+        subtotal = Decimal(
+            cart.total_price
+        )  # assume total_price returns Decimal or numeric
+        total = subtotal  # add tax/shipping if any
+
+        # create order and items inside transaction
+        with transaction.atomic():
+            order = Order.objects.create(
+                user=request.user,
+                customer_full_name=(
+                    data["full_name"]
+                    if isinstance(data, dict) and "full_name" in data
+                    else None
+                ),
+                customer_email=(
+                    data.get("email") if isinstance(data, dict) else request.user.email
+                ),
+                customer_phone=(
+                    data.get("phone_number") if isinstance(data, dict) else None
+                ),
+                address=data.get("address") if isinstance(data, dict) else None,
+                subtotal=subtotal,
+                tax=Decimal("0.00"),
+                shipping=Decimal("0.00"),
+                total=total,
+                items_snapshot="[]",  # we'll fill below
             )
 
-        if cart_total <= 0:
-            return Response(
-                {"error": "Cart is empty."}, status=status.HTTP_400_BAD_REQUEST
-            )
+            snapshot = []
+            # snapshot plan items
+            for cp in cart.plans.select_related("meal_plan").all():
+                mp = cp.meal_plan
+                snapshot.append(
+                    {
+                        "type": "meal_plan",
+                        "meal_plan_id": mp.pk,
+                        "title": str(mp),
+                        "quantity": cp.quantity,
+                        "unit_price": str(cp.computed_price() / (cp.quantity or 1)),
+                        "line_total": str(cp.computed_price()),
+                    }
+                )
+                OrderItem.objects.create(
+                    order=order,
+                    meal_plan=mp,
+                    name=str(mp),
+                    unit_price=cp.computed_price() / (cp.quantity or 1),
+                    quantity=cp.quantity,
+                    total_price=cp.computed_price(),
+                )
 
-        # convert to kobo (integer)
-        try:
-            amount_kobo = int((cart_total * Decimal("100")).quantize(Decimal("1")))
-        except (InvalidOperation, TypeError):
-            return Response(
-                {"error": "Invalid cart total amount."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            # snapshot custom items
+            for ci in cart.items.filter(cart_plan__isnull=True).select_related(
+                "food_item"
+            ):
+                fi = ci.food_item
+                line_total = fi.price * ci.quantity
+                snapshot.append(
+                    {
+                        "type": "custom_item",
+                        "food_item_id": fi.pk,
+                        "name": fi.name,
+                        "quantity": ci.quantity,
+                        "unit_price": str(fi.price),
+                        "line_total": str(line_total),
+                    }
+                )
+                OrderItem.objects.create(
+                    order=order,
+                    food_item=fi,
+                    name=fi.name,
+                    unit_price=fi.price,
+                    quantity=ci.quantity,
+                    total_price=line_total,
+                )
 
-        # build Paystack request
-        PAYSTACK_KEY = getattr(settings, "PAYSTACK_SECRET_KEY", None)
-        if not PAYSTACK_KEY:
-            return Response(
-                {
-                    "error": "Paystack secret key not configured in settings.PAYSTACK_SECRET_KEY."
-                },
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+            import json
 
-        url = "https://api.paystack.co/transaction/initialize"
+            order.items_snapshot = json.dumps(snapshot)
+            order.save()
+
+            # create payment record
+            p = PaymentTransaction.objects.create(order=order, gateway="paystack")
+
+        # init paystack transaction
+        amount_kobo = int((order.total * Decimal("100")).quantize(Decimal("1")))
+        callback_url = request.build_absolute_uri(reverse("paystack-verify"))
+        paystack_payload = {
+            "email": order.customer_email,
+            "amount": amount_kobo,
+            "reference": order.reference,
+            "callback_url": callback_url,
+            "metadata": {
+                "order_id": order.pk,
+                "user_id": request.user.id,
+            },
+        }
         headers = {
-            "Authorization": f"Bearer {PAYSTACK_KEY}",
+            "Authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}",
             "Content-Type": "application/json",
         }
 
-        payload = {
-            "email": email,
-            "amount": amount_kobo,
-            "metadata": {
-                "customer": {
-                    "full_name": data.get("full_name"),
-                    "address": data.get("address"),
-                    "phone_number": data.get("phone_number"),
-                    "user_id": getattr(request.user, "id", None),
-                },
-                "cart_snapshot": {
-                    "plan_total": str(getattr(cart, "plan_total_amount", "") or ""),
-                    "custom_total": str(getattr(cart, "custom_items_total", "") or ""),
-                    "grand_total": str(cart_total),
-                },
-            },
-        }
-
         try:
-            resp = requests.post(url, json=payload, headers=headers, timeout=15)
-            resp_data = resp.json()
+            resp = requests.post(
+                PAYSTACK_INIT_URL, json=paystack_payload, headers=headers, timeout=15
+            )
+            resp.raise_for_status()
+            data = resp.json()
         except requests.RequestException as exc:
             return Response(
-                {"error": "Failed to contact payment gateway.", "detail": str(exc)},
+                {"error": "payment init failed", "detail": str(exc)},
                 status=status.HTTP_502_BAD_GATEWAY,
             )
-        except ValueError:
+
+        if data.get("status") and data.get("data"):
+            auth_url = data["data"].get("authorization_url")
+            gateway_ref = data["data"].get("reference")
+            # update payment record
+            p.authorization_url = auth_url
+            p.gateway_reference = gateway_ref
+            p.raw_response = data
+            p.save(
+                update_fields=["authorization_url", "gateway_reference", "raw_response"]
+            )
             return Response(
-                {"error": "Invalid response from payment gateway."},
-                status=status.HTTP_502_BAD_GATEWAY,
+                {"authorization_url": auth_url, "reference": order.reference},
+                status=status.HTTP_200_OK,
             )
 
-        if resp.status_code in (200, 201):
-            return Response(resp_data, status=status.HTTP_200_OK)
-
-        return Response(resp_data, status=resp.status_code)
+        return Response(
+            {"error": "Failed to initialize payment", "detail": data},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
 def _ordinal(n: int) -> str:

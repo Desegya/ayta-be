@@ -1,4 +1,6 @@
 from django.urls import path
+
+from food.paystack_verify import paystack_verify_redirect
 from .views import (
     AddCustomSelectionView,
     AddPlanToCartView,
@@ -40,6 +42,7 @@ urlpatterns = [
     path("cart/remove-item/", RemoveFromCartView.as_view(), name="remove-from-cart"),
     path("cart/checkout/", CheckoutView.as_view(), name="cart-checkout"),
     path("cart/summary/", OrderSummaryView.as_view(), name="cart-summary"),
+      path("payments/verify/", paystack_verify_redirect, name="paystack-verify"),
     path("plans/by-type/", MealPlanByTypeView.as_view(), name="plans-by-type"),
     path(
         "plans/admin-meals-by-day/",

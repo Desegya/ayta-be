@@ -31,6 +31,8 @@ MEDIA_ROOT = BASE_DIR / "media"
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = config("DJANGO_SECRET_KEY")
 
+FRONTEND_PAYMENT_SUCCESS_URL = "http://localhost:3000/dashboard/checkout/result"
+
 
 # SECURITY WARNING: don't run with debug turned on in production!
 
