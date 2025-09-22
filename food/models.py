@@ -224,6 +224,7 @@ class Order(models.Model):
     STATUS_FAILED = "failed"
     STATUS_CANCELLED = "cancelled"
     STATUS_REFUNDED = "refunded"
+    STATUS_DELIVERED = "delivered"
 
     STATUS_CHOICES = [
         (STATUS_PENDING, "Pending"),
@@ -231,6 +232,7 @@ class Order(models.Model):
         (STATUS_FAILED, "Failed"),
         (STATUS_CANCELLED, "Cancelled"),
         (STATUS_REFUNDED, "Refunded"),
+        (STATUS_DELIVERED, "Delivered"),
     ]
 
     user = models.ForeignKey(
@@ -250,9 +252,7 @@ class Order(models.Model):
     subtotal = models.DecimalField(
         max_digits=12, decimal_places=2, default=Decimal("0.00")
     )
-    tax = models.DecimalField(
-        max_digits=12, decimal_places=2, default=Decimal("0.00")
-    )
+    tax = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
     shipping = models.DecimalField(
         max_digits=12, decimal_places=2, default=Decimal("0.00")
     )
@@ -264,7 +264,9 @@ class Order(models.Model):
     if JSONField is not None:
         items_snapshot = JSONField(blank=True, null=True)
     else:
-        items_snapshot = models.TextField(blank=True, null=True, help_text="JSON-serialized snapshot")
+        items_snapshot = models.TextField(
+            blank=True, null=True, help_text="JSON-serialized snapshot"
+        )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -313,7 +315,9 @@ class OrderItem(models.Model):
     if JSONField is not None:
         metadata = JSONField(blank=True, null=True)
     else:
-        metadata = models.TextField(blank=True, null=True, help_text="JSON-serialized metadata")
+        metadata = models.TextField(
+            blank=True, null=True, help_text="JSON-serialized metadata"
+        )
 
     def get_metadata(self):
         if JSONField is not None:
@@ -336,7 +340,9 @@ class OrderItem(models.Model):
 
 
 class PaymentTransaction(models.Model):
-    order = models.OneToOneField(Order, related_name="payment", on_delete=models.CASCADE)
+    order = models.OneToOneField(
+        Order, related_name="payment", on_delete=models.CASCADE
+    )
     gateway = models.CharField(max_length=32, default="paystack")
     gateway_reference = models.CharField(max_length=128, blank=True, null=True)
     authorization_url = models.URLField(blank=True, null=True)
@@ -344,7 +350,9 @@ class PaymentTransaction(models.Model):
     if JSONField is not None:
         raw_response = JSONField(blank=True, null=True)
     else:
-        raw_response = models.TextField(blank=True, null=True, help_text="JSON-serialized gateway response")
+        raw_response = models.TextField(
+            blank=True, null=True, help_text="JSON-serialized gateway response"
+        )
 
     paid_at = models.DateTimeField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)

@@ -20,7 +20,9 @@ from .views import (
     LeanMealPlansView,
     MealPlanMealsView,
     UpdateCustomCartItemView,
+    UserPastOrdersView,
 )
+
 
 urlpatterns = [
     path("meals/", FoodItemListView.as_view(), name="meal-list"),
@@ -42,7 +44,8 @@ urlpatterns = [
     path("cart/remove-item/", RemoveFromCartView.as_view(), name="remove-from-cart"),
     path("cart/checkout/", CheckoutView.as_view(), name="cart-checkout"),
     path("cart/summary/", OrderSummaryView.as_view(), name="cart-summary"),
-      path("payments/verify/", paystack_verify_redirect, name="paystack-verify"),
+    path("payments/verify/", paystack_verify_redirect, name="paystack-verify"),
+    path("orders/past/", UserPastOrdersView.as_view(), name="user-past-orders"),
     path("plans/by-type/", MealPlanByTypeView.as_view(), name="plans-by-type"),
     path(
         "plans/admin-meals-by-day/",
