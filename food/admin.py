@@ -15,6 +15,10 @@ from .models import (
     PaymentTransaction,
 )
 
+admin.site.site_header = "AyTa Meal Prep"
+admin.site.site_title = "AyTa Meal Prep"
+admin.site.index_title = "AyTa Meal Prep Administration"
+
 
 class CartItemInline(admin.TabularInline):
     model = CartItem

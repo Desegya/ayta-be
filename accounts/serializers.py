@@ -57,6 +57,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
         fields = ["full_name", "phone_number", "email"]
         read_only_fields = ["email"]
 
+
 # --- Change Password Serializer ---
 class ChangePasswordSerializer(serializers.Serializer):
     old_password = serializers.CharField(required=True)
