@@ -1,16 +1,107 @@
 # accounts/serializers.py
 from rest_framework import serializers
 from django.contrib.auth import authenticate
+from typing import Dict, Any
+from django.core.files.storage import default_storage
+from django.core.files.base import ContentFile
+from django.core.validators import URLValidator
+from django.core.exceptions import ValidationError as DjangoValidationError
+import os
+import uuid
 from .models import User
+
+
+class FlexibleProfilePictureField(serializers.Field):
+    """
+    Custom field that accepts either:
+    1. An uploaded image file
+    2. A Cloudinary URL string
+    """
+
+    def to_representation(self, value):
+        """Convert the stored value to what should be returned in API responses."""
+        if not value:
+            return None
+
+        # If it's already a full URL, return as-is
+        if value.startswith("http://") or value.startswith("https://"):
+            return value
+
+        # If it's a local file path, construct the full media URL
+        from django.conf import settings
+
+        request = self.context.get("request")
+        if request:
+            return request.build_absolute_uri(f"{settings.MEDIA_URL}{value}")
+        return f"{settings.MEDIA_URL}{value}"
+
+    def to_internal_value(self, data):
+        """Convert the input data to what should be stored in the database."""
+        if data is None or data == "":
+            return None
+
+        # If it's a string (URL), validate and return it
+        if isinstance(data, str):
+            # Validate URL format
+            url_validator = URLValidator()
+            try:
+                url_validator(data)
+                # Additional validation for image URLs
+                if "cloudinary.com" in data or any(
+                    data.lower().endswith(ext)
+                    for ext in [".jpg", ".jpeg", ".png", ".gif", ".webp"]
+                ):
+                    return data
+                else:
+                    raise serializers.ValidationError(
+                        "URL must be a Cloudinary URL or end with a valid image extension."
+                    )
+            except DjangoValidationError:
+                raise serializers.ValidationError("Invalid URL format.")
+
+        # If it's an uploaded file, handle the file upload
+        elif hasattr(data, "read"):
+            # Validate it's an image
+            from PIL import Image
+
+            try:
+                img = Image.open(data)
+                img.verify()
+            except Exception:
+                raise serializers.ValidationError("Invalid image file.")
+
+            # Reset file pointer after verify()
+            data.seek(0)
+
+            # Generate unique filename
+            ext = os.path.splitext(data.name)[1] if data.name else ".jpg"
+            filename = f"profile_pictures/{uuid.uuid4()}{ext}"
+
+            # Save the file
+            path = default_storage.save(filename, ContentFile(data.read()))
+            return path
+
+        else:
+            raise serializers.ValidationError(
+                "Profile picture must be either a file upload or a valid URL."
+            )
 
 
 class SignupSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
     confirm_password = serializers.CharField(write_only=True)
+    profile_picture = FlexibleProfilePictureField(required=False, allow_null=True)
 
     class Meta:
         model = User
-        fields = ["full_name", "phone_number", "email", "password", "confirm_password"]
+        fields = [
+            "full_name",
+            "phone_number",
+            "email",
+            "password",
+            "confirm_password",
+            "profile_picture",
+        ]
 
     def validate(self, data):
         if data.get("password") != data.get("confirm_password"):
@@ -31,6 +122,7 @@ class SignupSerializer(serializers.ModelSerializer):
             full_name=validated_data.get("full_name"),
             phone_number=validated_data.get("phone_number"),
             password=validated_data.get("password"),
+            profile_picture=validated_data.get("profile_picture"),
         )
         return user
 
@@ -52,9 +144,11 @@ class SigninSerializer(serializers.Serializer):
 
 # --- User Profile Serializer ---
 class UserProfileSerializer(serializers.ModelSerializer):
+    profile_picture = FlexibleProfilePictureField(required=False, allow_null=True)
+
     class Meta:
         model = User
-        fields = ["full_name", "phone_number", "email"]
+        fields = ["full_name", "phone_number", "email", "profile_picture"]
         read_only_fields = ["email"]
 
 

@@ -164,13 +164,25 @@ class CookieTokenRefreshView(TokenRefreshView):
                 {"detail": "No refresh token in cookies."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        request.data["refresh"] = refresh_token
-        response = super().post(request, *args, **kwargs)
-        # If refresh was successful, set new access token in cookie
-        if response.status_code == 200 and "access" in response.data:
+
+        # Create a new request object with the refresh token
+        from rest_framework_simplejwt.serializers import TokenRefreshSerializer
+
+        serializer = TokenRefreshSerializer(data={"refresh": refresh_token})
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        # Get the new access token
+        validated_data = cast(Dict[str, Any], serializer.validated_data)
+        access_token = validated_data.get("access")
+
+        response = Response({"access": access_token}, status=status.HTTP_200_OK)
+
+        # Set new access token in cookie
+        if access_token:
             response.set_cookie(
                 key="access_token",
-                value=response.data["access"],
+                value=access_token,
                 httponly=True,
                 secure=False,  # set True in production
                 samesite="Lax",
@@ -197,6 +209,13 @@ class UserProfileEditView(APIView):
         serializer.save()
         return Response(serializer.data)
 
+    def put(self, request):
+        """Allow full update of user profile including profile picture"""
+        serializer = UserProfileSerializer(request.user, data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
 
 # --- Change Password Endpoint ---
 class ChangePasswordView(APIView):
@@ -204,12 +223,19 @@ class ChangePasswordView(APIView):
 
     def post(self, request):
         serializer = ChangePasswordSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=400)
+
         user = request.user
-        old_password = serializer.validated_data["old_password"]
-        new_password = serializer.validated_data["new_password"]
+
+        # Cast to Dict to satisfy type checker
+        validated_data = cast(Dict[str, Any], serializer.validated_data)
+        old_password = validated_data["old_password"]
+        new_password = validated_data["new_password"]
+
         if not user.check_password(old_password):
             return Response({"error": "Old password is incorrect."}, status=400)
+
         user.set_password(new_password)
         user.save()
         return Response({"message": "Password changed successfully."})
