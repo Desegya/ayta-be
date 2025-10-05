@@ -231,12 +231,43 @@ class UserProfileEditView(APIView):
 
 # --- Change Password Endpoint ---
 class ChangePasswordView(APIView):
+    """
+    Change password for authenticated users.
+    Requires: old_password, new_password, confirm_password
+    Returns: success message
+    """
+
     permission_classes = [IsAuthenticated]
 
+    @swagger_auto_schema(
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                "old_password": openapi.Schema(
+                    type=openapi.TYPE_STRING, description="Current password"
+                ),
+                "new_password": openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    minLength=8,
+                    description="New password (minimum 8 characters)",
+                ),
+                "confirm_password": openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    minLength=8,
+                    description="Confirm new password",
+                ),
+            },
+            required=["old_password", "new_password", "confirm_password"],
+        ),
+        responses={
+            200: openapi.Response("Password changed successfully"),
+            400: openapi.Response("Validation error or incorrect old password"),
+            401: openapi.Response("Authentication required"),
+        },
+    )
     def post(self, request):
         serializer = ChangePasswordSerializer(data=request.data)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=400)
+        serializer.is_valid(raise_exception=True)
 
         user = request.user
 
@@ -245,12 +276,20 @@ class ChangePasswordView(APIView):
         old_password = validated_data["old_password"]
         new_password = validated_data["new_password"]
 
+        # Verify current password
         if not user.check_password(old_password):
-            return Response({"error": "Old password is incorrect."}, status=400)
+            return Response(
+                {"error": "Current password is incorrect."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
+        # Set new password
         user.set_password(new_password)
         user.save()
-        return Response({"message": "Password changed successfully."})
+
+        return Response(
+            {"message": "Password changed successfully."}, status=status.HTTP_200_OK
+        )
 
 
 # --- Password Reset Views ---

@@ -154,8 +154,29 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
 # --- Change Password Serializer ---
 class ChangePasswordSerializer(serializers.Serializer):
-    old_password = serializers.CharField(required=True)
-    new_password = serializers.CharField(required=True)
+    old_password = serializers.CharField(required=True, write_only=True)
+    new_password = serializers.CharField(required=True, write_only=True, min_length=8)
+    confirm_password = serializers.CharField(
+        required=True, write_only=True, min_length=8
+    )
+
+    def validate(self, data):
+        """Validate password change request"""
+        # Check if new passwords match
+        if data["new_password"] != data["confirm_password"]:
+            raise serializers.ValidationError(
+                {"confirm_password": "New passwords do not match."}
+            )
+
+        # Check if new password is different from old password
+        if data["old_password"] == data["new_password"]:
+            raise serializers.ValidationError(
+                {
+                    "new_password": "New password must be different from the current password."
+                }
+            )
+
+        return data
 
 
 # --- Password Reset Serializers ---
