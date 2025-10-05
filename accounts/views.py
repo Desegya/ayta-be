@@ -356,9 +356,9 @@ class PasswordResetVerifyView(APIView):
         },
     )
     def post(self, request):
-        from .serializers import PasswordResetVerifySerializer
+        from .serializers import PasswordResetFinalSerializer
 
-        serializer = PasswordResetVerifySerializer(data=request.data)
+        serializer = PasswordResetFinalSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         # Cast to Dict to satisfy type checker
@@ -377,6 +377,51 @@ class PasswordResetVerifyView(APIView):
         return Response(
             {
                 "message": "Password reset successfully. You can now log in with your new password."
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class OTPVerifyView(APIView):
+    """
+    Verify OTP code only (without password reset).
+    Accepts: email, otp_code
+    Returns: verification success message
+    """
+
+    permission_classes = [AllowAny]
+
+    @swagger_auto_schema(
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                "email": openapi.Schema(
+                    type=openapi.TYPE_STRING, format=openapi.FORMAT_EMAIL
+                ),
+                "otp_code": openapi.Schema(
+                    type=openapi.TYPE_STRING, minLength=6, maxLength=6
+                ),
+            },
+            required=["email", "otp_code"],
+        ),
+        responses={
+            200: openapi.Response("OTP verified successfully"),
+            400: openapi.Response("Invalid OTP or validation error"),
+        },
+    )
+    def post(self, request):
+        from .serializers import OTPVerifyOnlySerializer
+
+        serializer = OTPVerifyOnlySerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        # Cast to Dict to satisfy type checker
+        validated_data = cast(Dict[str, Any], serializer.validated_data)
+
+        return Response(
+            {
+                "message": "OTP verified successfully. You can now proceed to reset your password.",
+                "verified": True,
             },
             status=status.HTTP_200_OK,
         )
