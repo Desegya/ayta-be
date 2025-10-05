@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AyTa Meal Prep - Order Receipt</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            background-color: #e74c3c;
+            color: white;
+            padding: 20px;
+            margin: -30px -30px 30px -30px;
+            border-radius: 10px 10px 0 0;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        .section {
+            margin-bottom: 25px;
+        }
+        .section-title {
+            background-color: #34495e;
+            color: white;
+            padding: 10px 15px;
+            margin: 0 -15px 15px -15px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .order-info {
+            background-color: #ecf0f1;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+        }
+        .order-info strong {
+            color: #2c3e50;
+        }
+        .item {
+            border-bottom: 1px solid #bdc3c7;
+            padding: 15px 0;
+        }
+        .item:last-child {
+            border-bottom: none;
+        }
+        .item-name {
+            font-weight: bold;
+            color: #2c3e50;
+            font-size: 16px;
+        }
+        .item-details {
+            color: #7f8c8d;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+        .item-price {
+            text-align: right;
+            font-weight: bold;
+            color: #27ae60;
+        }
+        .spice-level {
+            display: inline-block;
+            background-color: #e67e22;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            margin-left: 10px;
+        }
+        .summary {
+            background-color: #2c3e50;
+            color: white;
+            padding: 20px;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        .summary-total {
+            font-size: 20px;
+            font-weight: bold;
+            border-top: 2px solid #34495e;
+            padding-top: 15px;
+            margin-top: 15px;
+        }
+        .next-steps {
+            background-color: #d5f4e6;
+            border-left: 4px solid #27ae60;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        .next-steps ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+        .contact-info {
+            background-color: #fef9e7;
+            border-left: 4px solid #f39c12;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        .footer {
+            text-align: center;
+            color: #7f8c8d;
+            font-size: 12px;
+            margin-top: 30px;
+            border-top: 1px solid #bdc3c7;
+            padding-top: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🍽️ AyTa Meal Prep</h1>
+            <p>Order Confirmation Receipt</p>
+        </div>
+
+        <div class="section">
+            <div class="order-info">
+                <p><strong>Order Number:</strong> {{ order.reference }}</p>
+                <p><strong>Order Date:</strong> {{ order.created_at|date:"F d, Y at g:i A" }}</p>
+                <p><strong>Status:</strong> <span style="color: #27ae60;">{{ order.get_status_display }}</span></p>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">👤 Customer Information</div>
+            <p><strong>Name:</strong> {{ order.customer_full_name }}</p>
+            <p><strong>Email:</strong> {{ order.customer_email }}</p>
+            <p><strong>Phone:</strong> {{ order.customer_phone|default:"Not provided" }}</p>
+            {% if order.address %}
+            <p><strong>Delivery Address:</strong><br>{{ order.address|linebreaks }}</p>
+            {% endif %}
+        </div>
+
+        <div class="section">
+            <div class="section-title">🛒 Order Items</div>
+            {% for item in order.items.all %}
+            <div class="item">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <div style="flex: 1;">
+                        <div class="item-name">
+                            {{ item.name }}
+                            {% if item.food_item.spice_level %}
+                                <span class="spice-level">🌶️ {{ item.food_item.get_spice_level_display_name }}</span>
+                            {% endif %}
+                        </div>
+                        <div class="item-details">
+                            Quantity: {{ item.quantity }} × ₦{{ item.unit_price|floatformat:2 }}
+                            {% if item.food_item %}
+                            <br>{{ item.food_item.calories }} calories per serving
+                            <br>{{ item.food_item.get_food_type_display }} • {{ item.food_item.get_category_display }}
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="item-price">
+                        ₦{{ item.total_price|floatformat:2 }}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="summary">
+            <div class="summary-row">
+                <span>Subtotal:</span>
+                <span>₦{{ order.subtotal|floatformat:2 }}</span>
+            </div>
+            {% if order.tax > 0 %}
+            <div class="summary-row">
+                <span>Tax:</span>
+                <span>₦{{ order.tax|floatformat:2 }}</span>
+            </div>
+            {% endif %}
+            {% if order.shipping > 0 %}
+            <div class="summary-row">
+                <span>Shipping:</span>
+                <span>₦{{ order.shipping|floatformat:2 }}</span>
+            </div>
+            {% endif %}
+            <div class="summary-row summary-total">
+                <span>TOTAL:</span>
+                <span>₦{{ order.total|floatformat:2 }}</span>
+            </div>
+        </div>
+
+        <div class="next-steps">
+            <h3 style="margin-top: 0; color: #27ae60;">🎉 What's Next?</h3>
+            <ul>
+                <li>Your order has been received and confirmed</li>
+                <li>Our chefs will prepare your meals with love and care</li>
+                <li>You'll receive updates via email and SMS</li>
+                <li>Delivery within 24-48 hours</li>
+            </ul>
+        </div>
+
+        <div class="contact-info">
+            <h3 style="margin-top: 0; color: #f39c12;">📞 Need Help?</h3>
+            <p>If you have any questions about your order, please contact us:</p>
+            <p>
+                📧 <strong>Email:</strong> support@ayta.com<br>
+                📞 <strong>Phone:</strong> +234 xxx xxx xxxx<br>
+                🌐 <strong>Website:</strong> www.ayta.com
+            </p>
+        </div>
+
+        <div class="footer">
+            <p>Thank you for choosing AyTa Meal Prep!</p>
+            <p>This email was sent to {{ order.customer_email }}</p>
+            <p>Order Reference: {{ order.reference }}</p>
+            <p>© {{ current_year }} AyTa Meal Prep. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>

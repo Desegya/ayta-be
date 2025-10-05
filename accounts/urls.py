@@ -6,8 +6,10 @@ from .views import (
     SignoutView,
     UserProfileView,
     UserProfileEditView,
+    ChangePasswordView,
+    PasswordResetRequestView,
+    PasswordResetVerifyView,
 )
-from .views import ChangePasswordView
 from rest_framework_simplejwt.views import TokenObtainPairView
 
 urlpatterns = [
@@ -20,5 +22,16 @@ urlpatterns = [
     path("profile/edit/", UserProfileEditView.as_view(), name="user-profile-edit"),
     path(
         "profile/change-password/", ChangePasswordView.as_view(), name="change-password"
+    ),
+    # Password Reset endpoints
+    path(
+        "password-reset/request/",
+        PasswordResetRequestView.as_view(),
+        name="password-reset-request",
+    ),
+    path(
+        "password-reset/verify/",
+        PasswordResetVerifyView.as_view(),
+        name="password-reset-verify",
     ),
 ]

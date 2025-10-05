@@ -2,7 +2,11 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.core.validators import URLValidator
 from django.core.exceptions import ValidationError
+from django.utils import timezone
+from datetime import timedelta
 import os
+import random
+import string
 
 
 def validate_profile_picture(value):
@@ -73,3 +77,52 @@ class User(AbstractUser):
             if self.profile_picture
             else None
         )
+
+
+class PasswordResetOTP(models.Model):
+    """Model to store OTP codes for password reset"""
+
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="password_reset_otps"
+    )
+    otp_code = models.CharField(max_length=6)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    used = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def save(self, *args, **kwargs):
+        """Set expiration time to 10 minutes from creation if not already set"""
+        if not self.expires_at:
+            self.expires_at = timezone.now() + timedelta(minutes=10)
+        super().save(*args, **kwargs)
+
+    def is_valid(self):
+        """Check if OTP is valid (not used and not expired)"""
+        return not self.used and timezone.now() < self.expires_at
+
+    def mark_as_used(self):
+        """Mark OTP as used"""
+        self.used = True
+        self.save()
+
+    @classmethod
+    def generate_otp_code(cls):
+        """Generate a 6-digit OTP code"""
+        return "".join(random.choices(string.digits, k=6))
+
+    @classmethod
+    def create_otp_for_user(cls, user):
+        """Create a new OTP for password reset for a user"""
+        # Invalidate any existing unused OTPs for this user
+        cls.objects.filter(user=user, used=False).update(used=True)
+
+        # Create new OTP
+        otp_code = cls.generate_otp_code()
+        otp = cls.objects.create(user=user, otp_code=otp_code)
+        return otp
+
+    def __str__(self):
+        return f"OTP {self.otp_code} for {self.user.email} - {'Valid' if self.is_valid() else 'Invalid'}"

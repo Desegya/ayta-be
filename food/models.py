@@ -295,6 +295,20 @@ class Order(models.Model):
         self.status = self.STATUS_PAID
         self.save(update_fields=["status", "updated_at"])
 
+        # Send order receipt email
+        from .email_utils import send_order_receipt_email
+
+        try:
+            send_order_receipt_email(self)
+        except Exception as e:
+            # Log error but don't prevent order from being marked as paid
+            import logging
+
+            logger = logging.getLogger(__name__)
+            logger.error(
+                f"Failed to send receipt email for order {self.reference}: {str(e)}"
+            )
+
     def set_items_snapshot(self, data):
         """Accept a Python list/dict and store it safely (handles TextField fallback)."""
         if JSONField is not None:

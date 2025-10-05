@@ -49,6 +49,18 @@ class SignupView(APIView):
         created_user = serializer.save()  # returns the created User instance
         user = cast(User, created_user)  # <- satisfy Pylance / type checker
 
+        # Send welcome email
+        from food.email_utils import send_welcome_email
+
+        try:
+            send_welcome_email(user)
+        except Exception as e:
+            # Log error but don't prevent signup
+            import logging
+
+            logger = logging.getLogger(__name__)
+            logger.error(f"Failed to send welcome email to {user.email}: {str(e)}")
+
         # Optionally log the user into the session (if using session auth)
         login(request, user)
 
@@ -239,3 +251,132 @@ class ChangePasswordView(APIView):
         user.set_password(new_password)
         user.save()
         return Response({"message": "Password changed successfully."})
+
+
+# --- Password Reset Views ---
+class PasswordResetRequestView(APIView):
+    """
+    Request password reset OTP.
+    Accepts: email
+    Returns: success message and sends OTP via email
+    """
+
+    permission_classes = [AllowAny]
+
+    @swagger_auto_schema(
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                "email": openapi.Schema(
+                    type=openapi.TYPE_STRING, format=openapi.FORMAT_EMAIL
+                ),
+            },
+            required=["email"],
+        ),
+        responses={
+            200: openapi.Response("OTP sent successfully"),
+            400: openapi.Response("Invalid email"),
+            404: openapi.Response("User not found"),
+        },
+    )
+    def post(self, request):
+        from .serializers import PasswordResetRequestSerializer
+        from .models import PasswordResetOTP
+        from food.email_utils import send_password_reset_otp_email
+
+        serializer = PasswordResetRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        # Cast to Dict to satisfy type checker
+        validated_data = cast(Dict[str, Any], serializer.validated_data)
+        email = validated_data["email"]
+
+        try:
+            user = User.objects.get(email=email)
+
+            # Create OTP for user
+            otp = PasswordResetOTP.create_otp_for_user(user)
+
+            # Send OTP via email
+            email_sent = send_password_reset_otp_email(user, otp.otp_code)
+
+            if email_sent:
+                return Response(
+                    {
+                        "message": "Password reset code sent to your email.",
+                        "expires_in_minutes": 10,
+                    },
+                    status=status.HTTP_200_OK,
+                )
+            else:
+                return Response(
+                    {"error": "Failed to send email. Please try again later."},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
+
+        except User.DoesNotExist:
+            # For security, don't reveal that email doesn't exist
+            return Response(
+                {
+                    "message": "If an account with this email exists, you will receive a password reset code."
+                },
+                status=status.HTTP_200_OK,
+            )
+
+
+class PasswordResetVerifyView(APIView):
+    """
+    Verify OTP and reset password.
+    Accepts: email, otp_code, new_password, confirm_password
+    Returns: success message
+    """
+
+    permission_classes = [AllowAny]
+
+    @swagger_auto_schema(
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                "email": openapi.Schema(
+                    type=openapi.TYPE_STRING, format=openapi.FORMAT_EMAIL
+                ),
+                "otp_code": openapi.Schema(
+                    type=openapi.TYPE_STRING, minLength=6, maxLength=6
+                ),
+                "new_password": openapi.Schema(type=openapi.TYPE_STRING, minLength=8),
+                "confirm_password": openapi.Schema(
+                    type=openapi.TYPE_STRING, minLength=8
+                ),
+            },
+            required=["email", "otp_code", "new_password", "confirm_password"],
+        ),
+        responses={
+            200: openapi.Response("Password reset successfully"),
+            400: openapi.Response("Invalid OTP or validation error"),
+        },
+    )
+    def post(self, request):
+        from .serializers import PasswordResetVerifySerializer
+
+        serializer = PasswordResetVerifySerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        # Cast to Dict to satisfy type checker
+        validated_data = cast(Dict[str, Any], serializer.validated_data)
+        user = validated_data["user"]
+        otp = validated_data["otp"]
+        new_password = validated_data["new_password"]
+
+        # Reset password
+        user.set_password(new_password)
+        user.save()
+
+        # Mark OTP as used
+        otp.mark_as_used()
+
+        return Response(
+            {
+                "message": "Password reset successfully. You can now log in with your new password."
+            },
+            status=status.HTTP_200_OK,
+        )

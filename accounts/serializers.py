@@ -156,3 +156,70 @@ class UserProfileSerializer(serializers.ModelSerializer):
 class ChangePasswordSerializer(serializers.Serializer):
     old_password = serializers.CharField(required=True)
     new_password = serializers.CharField(required=True)
+
+
+# --- Password Reset Serializers ---
+class PasswordResetRequestSerializer(serializers.Serializer):
+    """Serializer for requesting password reset OTP"""
+
+    email = serializers.EmailField()
+
+    def validate_email(self, value):
+        """Check if user with this email exists"""
+        try:
+            user = User.objects.get(email=value)
+        except User.DoesNotExist:
+            raise serializers.ValidationError("No user found with this email address.")
+        return value
+
+
+class PasswordResetVerifySerializer(serializers.Serializer):
+    """Serializer for verifying OTP and resetting password"""
+
+    email = serializers.EmailField()
+    otp_code = serializers.CharField(max_length=6, min_length=6)
+    new_password = serializers.CharField(min_length=8, write_only=True)
+    confirm_password = serializers.CharField(min_length=8, write_only=True)
+
+    def validate_otp_code(self, value):
+        """Validate OTP code format"""
+        if not value.isdigit():
+            raise serializers.ValidationError("OTP code must contain only digits.")
+        return value
+
+    def validate(self, data):
+        """Validate the entire password reset request"""
+        # Check if passwords match
+        if data["new_password"] != data["confirm_password"]:
+            raise serializers.ValidationError(
+                {"confirm_password": "Passwords do not match."}
+            )
+
+        # Check if user exists
+        try:
+            user = User.objects.get(email=data["email"])
+            data["user"] = user
+        except User.DoesNotExist:
+            raise serializers.ValidationError(
+                {"email": "No user found with this email address."}
+            )
+
+        # Validate OTP
+        from .models import PasswordResetOTP
+
+        try:
+            otp = PasswordResetOTP.objects.filter(
+                user=user, otp_code=data["otp_code"], used=False
+            ).latest("created_at")
+
+            if not otp.is_valid():
+                raise serializers.ValidationError(
+                    {"otp_code": "Invalid or expired OTP code."}
+                )
+
+            data["otp"] = otp
+
+        except PasswordResetOTP.DoesNotExist:
+            raise serializers.ValidationError({"otp_code": "Invalid OTP code."})
+
+        return data

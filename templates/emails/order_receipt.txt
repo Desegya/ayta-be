@@ -1,0 +1,86 @@
+AyTa Meal Prep - Order Receipt
+
+===============================================
+ORDER CONFIRMATION
+===============================================
+
+Dear {{ order.customer_full_name }},
+
+Thank you for your order! We're excited to prepare your delicious meals.
+
+===============================================
+ORDER DETAILS
+===============================================
+
+Order Number: {{ order.reference }}
+Order Date: {{ order.created_at|date:"F d, Y at g:i A" }}
+Status: {{ order.get_status_display }}
+
+===============================================
+CUSTOMER INFORMATION
+===============================================
+
+Name: {{ order.customer_full_name }}
+Email: {{ order.customer_email }}
+Phone: {{ order.customer_phone|default:"Not provided" }}
+{% if order.address %}
+Delivery Address:
+{{ order.address }}
+{% endif %}
+
+===============================================
+ORDER ITEMS
+===============================================
+{% for item in order.items.all %}
+{{ item.name }}{% if item.food_item.spice_level %} ({{ item.food_item.get_spice_level_display_name }}){% endif %}
+  Quantity: {{ item.quantity }}
+  Unit Price: ₦{{ item.unit_price|floatformat:2 }}
+  Total: ₦{{ item.total_price|floatformat:2 }}
+{% if item.food_item %}
+  Calories per serving: {{ item.food_item.calories }}
+  Food Type: {{ item.food_item.get_food_type_display }}
+  Category: {{ item.food_item.get_category_display }}
+{% endif %}
+{% if not forloop.last %}
+-----------------------------------------------
+{% endif %}
+{% endfor %}
+
+===============================================
+ORDER SUMMARY
+===============================================
+
+Subtotal: ₦{{ order.subtotal|floatformat:2 }}
+{% if order.tax > 0 %}Tax: ₦{{ order.tax|floatformat:2 }}{% endif %}
+{% if order.shipping > 0 %}Shipping: ₦{{ order.shipping|floatformat:2 }}{% endif %}
+-----------------------------------------------
+TOTAL: ₦{{ order.total|floatformat:2 }}
+
+===============================================
+WHAT'S NEXT?
+===============================================
+
+✓ Your order has been received
+✓ Our chefs will prepare your meals with love
+✓ You'll receive updates via email and SMS
+✓ Delivery within 24-48 hours
+
+===============================================
+NEED HELP?
+===============================================
+
+If you have any questions about your order, please don't hesitate to contact us:
+
+📧 Email: support@ayta.com
+📞 Phone: +234 xxx xxx xxxx
+🌐 Website: www.ayta.com
+
+Thank you for choosing AyTa Meal Prep!
+
+Best regards,
+The AyTa Team
+
+---
+This email was sent to {{ order.customer_email }}
+Order Reference: {{ order.reference }}
+© {{ current_year }} AyTa Meal Prep. All rights reserved.
