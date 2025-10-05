@@ -54,34 +54,72 @@ class CartItemAdmin(admin.ModelAdmin):
 
 @admin.register(CartPlan)
 class CartPlanAdmin(admin.ModelAdmin):
-    list_display = ("cart", "meal_plan", "quantity", "price", "computed_price_display", "created_at")
+    list_display = (
+        "cart",
+        "meal_plan",
+        "quantity",
+        "price",
+        "computed_price_display",
+        "created_at",
+    )
     search_fields = ("cart__user__username", "meal_plan__slug")
     readonly_fields = ("computed_price_display", "created_at")
     autocomplete_fields = ("cart", "meal_plan")
 
     def computed_price_display(self, obj):
         return obj.computed_price()
+
     computed_price_display.short_description = "Total Price"
 
 
 @admin.register(FoodItem)
 class FoodItemAdmin(admin.ModelAdmin):
-    list_display = ("name", "price", "calories", "food_type", "category", "image_preview")
-    list_filter = ("food_type", "category")
+    list_display = (
+        "name",
+        "price",
+        "calories",
+        "food_type",
+        "category",
+        "spice_level_display",
+        "image_preview",
+    )
+    list_filter = ("food_type", "category", "spice_level")
     search_fields = ("name", "description", "ingredients")
-    readonly_fields = ("image_preview",)
+    readonly_fields = ("image_preview", "spice_level_display")
     fieldsets = (
         (None, {"fields": ("name", "price", "description", "ingredients")}),
         ("Nutrition", {"fields": ("calories", "protein", "carbohydrates", "fat")}),
-        ("Classification", {"fields": ("food_type", "category", "image")}),
-        ("Preview", {"fields": ("image_preview",)}),
+        (
+            "Classification",
+            {"fields": ("food_type", "category", "spice_level", "image")},
+        ),
+        ("Preview", {"fields": ("image_preview", "spice_level_display")}),
     )
 
     def image_preview(self, obj: FoodItem) -> Any:
         if obj.image:
-            return format_html('<img src="{}" style="max-height:100px;"/>', obj.image.url)
+            return format_html(
+                '<img src="{}" style="max-height:100px;"/>', obj.image.url
+            )
         return "-"
+
     image_preview.short_description = "Image"
+
+    def spice_level_display(self, obj: FoodItem) -> str:
+        """Display spice level with emoji indicators"""
+        if obj.spice_level is None:
+            return "Not Spicy"
+
+        spice_emojis = {
+            1: "🌶️ Mild",
+            2: "🌶️🌶️ Spicy",
+            3: "🌶️🌶️🌶️ Hot",
+            4: "🌶️🌶️🌶️🌶️ Extra",
+            5: "🌶️🌶️🌶️🌶️🌶️ Hell",
+        }
+        return spice_emojis.get(obj.spice_level, f"Level {obj.spice_level}")
+
+    spice_level_display.short_description = "Spice Level"
 
 
 @admin.register(MealPlan)
@@ -106,7 +144,14 @@ class UserMealPlanAdmin(admin.ModelAdmin):
 class OrderItemInline(admin.TabularInline):
     model = OrderItem
     extra = 0
-    readonly_fields = ("name", "unit_price", "quantity", "total_price", "food_item", "meal_plan")
+    readonly_fields = (
+        "name",
+        "unit_price",
+        "quantity",
+        "total_price",
+        "food_item",
+        "meal_plan",
+    )
     fields = ("food_item", "meal_plan", "name", "unit_price", "quantity", "total_price")
     can_delete = False
     autocomplete_fields = ("food_item", "meal_plan")
@@ -136,30 +181,64 @@ class OrderAdmin(admin.ModelAdmin):
     inlines = (OrderItemInline,)
 
     def items_snapshot_pretty(self, obj: Order) -> Any:
-        data = obj.get_items_snapshot() if hasattr(obj, "get_items_snapshot") else obj.items_snapshot
+        data = (
+            obj.get_items_snapshot()
+            if hasattr(obj, "get_items_snapshot")
+            else obj.items_snapshot
+        )
         try:
             pretty = json.dumps(data, indent=2, ensure_ascii=False)
         except Exception:
             pretty = str(data)
-        return format_html("<pre style='max-height:300px;overflow:auto'>{}</pre>", pretty)
+        return format_html(
+            "<pre style='max-height:300px;overflow:auto'>{}</pre>", pretty
+        )
 
     items_snapshot_pretty.short_description = "Items Snapshot (read-only)"
 
 
 @admin.register(OrderItem)
 class OrderItemAdmin(admin.ModelAdmin):
-    list_display = ("order", "name", "food_item", "meal_plan", "quantity", "total_price")
+    list_display = (
+        "order",
+        "name",
+        "food_item",
+        "meal_plan",
+        "quantity",
+        "total_price",
+    )
     search_fields = ("name", "order__reference", "food_item__name")
     readonly_fields = ("name", "unit_price", "quantity", "total_price", "metadata")
-    fields = ("order", "food_item", "meal_plan", "name", "unit_price", "quantity", "total_price", "metadata")
+    fields = (
+        "order",
+        "food_item",
+        "meal_plan",
+        "name",
+        "unit_price",
+        "quantity",
+        "total_price",
+        "metadata",
+    )
     autocomplete_fields = ("food_item", "meal_plan")
 
 
 @admin.register(PaymentTransaction)
 class PaymentTransactionAdmin(admin.ModelAdmin):
-    list_display = ("order", "gateway", "gateway_reference", "paid_at", "created_at", "authorization_link")
+    list_display = (
+        "order",
+        "gateway",
+        "gateway_reference",
+        "paid_at",
+        "created_at",
+        "authorization_link",
+    )
     search_fields = ("gateway_reference", "order__reference")
-    readonly_fields = ("raw_response_pretty", "paid_at", "created_at", "authorization_link")
+    readonly_fields = (
+        "raw_response_pretty",
+        "paid_at",
+        "created_at",
+        "authorization_link",
+    )
     fields = (
         "order",
         "gateway",
@@ -177,12 +256,18 @@ class PaymentTransactionAdmin(admin.ModelAdmin):
             pretty = json.dumps(data, indent=2, ensure_ascii=False)
         except Exception:
             pretty = str(data)
-        return format_html("<pre style='max-height:300px;overflow:auto'>{}</pre>", pretty)
+        return format_html(
+            "<pre style='max-height:300px;overflow:auto'>{}</pre>", pretty
+        )
 
     raw_response_pretty.short_description = "Gateway response (raw)"
 
     def authorization_link(self, obj: PaymentTransaction) -> Any:
         if obj.authorization_url:
-            return format_html('<a href="{}" target="_blank">Open authorization URL</a>', obj.authorization_url)
+            return format_html(
+                '<a href="{}" target="_blank">Open authorization URL</a>',
+                obj.authorization_url,
+            )
         return "-"
+
     authorization_link.short_description = "Authorization URL"

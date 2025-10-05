@@ -20,6 +20,14 @@ class FoodItem(models.Model):
         ("breakfast", "Breakfast"),
         ("lunch_dinner", "Lunch & Dinner"),
     ]
+    SPICE_LEVEL_CHOICES = [
+        (1, "Mild"),
+        (2, "Spicy"),
+        (3, "Hot"),
+        (4, "Extra"),
+        (5, "Hell"),
+    ]
+
     name = models.CharField(max_length=100)
     price = models.DecimalField(max_digits=8, decimal_places=2)
     description = models.TextField()
@@ -31,9 +39,21 @@ class FoodItem(models.Model):
     food_type = models.CharField(max_length=10, choices=FOOD_TYPE_CHOICES)
     category = models.CharField(max_length=20, choices=CATEGORY_CHOICES)
     image = models.ImageField(upload_to="food_images/", blank=True, null=True)
+    spice_level = models.PositiveSmallIntegerField(
+        choices=SPICE_LEVEL_CHOICES,
+        null=True,
+        blank=True,
+        help_text="Spice level from 1 (Mild) to 5 (Hell). Leave empty for non-spicy items.",
+    )
 
     def __str__(self):
         return self.name
+
+    def get_spice_level_display_name(self):
+        """Return the display name for spice level or None if not spicy"""
+        if self.spice_level:
+            return dict(self.SPICE_LEVEL_CHOICES)[self.spice_level]
+        return None
 
 
 # ---------- MealPlan (normalized) ----------

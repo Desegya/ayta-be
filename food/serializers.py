@@ -3,6 +3,10 @@ from .models import FoodItem
 
 
 class FoodItemListSerializer(serializers.ModelSerializer):
+    spice_level_display = serializers.CharField(
+        source="get_spice_level_display_name", read_only=True
+    )
+
     class Meta:
         model = FoodItem
         fields = [
@@ -13,10 +17,16 @@ class FoodItemListSerializer(serializers.ModelSerializer):
             "image",
             "food_type",
             "category",
+            "spice_level",
+            "spice_level_display",
         ]
 
 
 class FoodItemDetailSerializer(serializers.ModelSerializer):
+    spice_level_display = serializers.CharField(
+        source="get_spice_level_display_name", read_only=True
+    )
+
     class Meta:
         model = FoodItem
         fields = [
@@ -32,6 +42,8 @@ class FoodItemDetailSerializer(serializers.ModelSerializer):
             "food_type",
             "category",
             "image",
+            "spice_level",
+            "spice_level_display",
         ]
 
 
