@@ -23,6 +23,7 @@ from .views import (
     UserPastOrdersView,
     GuestOrderTrackingView,
     MergeGuestCartView,
+    ImageUploadView,
 )
 
 
@@ -48,6 +49,7 @@ urlpatterns = [
     path("cart/checkout/", CheckoutView.as_view(), name="cart-checkout"),
     path("cart/summary/", OrderSummaryView.as_view(), name="cart-summary"),
     path("cart/merge/", MergeGuestCartView.as_view(), name="merge-guest-cart"),
+    path("upload/image/", ImageUploadView.as_view(), name="upload-image"),
     path("payments/verify/", paystack_verify_redirect, name="paystack-verify"),
     path("orders/past/", UserPastOrdersView.as_view(), name="user-past-orders"),
     path(
@@ -74,4 +76,5 @@ urlpatterns = [
     path(
         "plans/<slug:slug>/meals/", MealPlanMealsView.as_view(), name="meal-plan-meals"
     ),
+    path("upload/image/", ImageUploadView.as_view(), name="upload-image"),
 ]

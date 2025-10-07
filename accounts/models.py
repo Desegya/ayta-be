@@ -4,6 +4,7 @@ from django.core.validators import URLValidator
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 from datetime import timedelta
+from cloudinary.models import CloudinaryField
 import os
 import random
 import string
@@ -47,12 +48,7 @@ def validate_profile_picture(value):
 class User(AbstractUser):
     full_name = models.CharField(max_length=150)
     phone_number = models.CharField(max_length=20, unique=True)
-    profile_picture = models.TextField(
-        null=True,
-        blank=True,
-        validators=[validate_profile_picture],
-        help_text="Profile picture - can be either an uploaded file or a Cloudinary URL",
-    )
+    profile_picture = CloudinaryField('image', blank=True, null=True, help_text="Profile picture stored on Cloudinary")
 
     def __str__(self):
         return self.username

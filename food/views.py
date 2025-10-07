@@ -19,7 +19,64 @@ from rest_framework.request import Request
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import generics, status, permissions
 from rest_framework.views import APIView
-from rest_framework.response import Response
+
+
+class ImageUploadView(APIView):
+    """
+    POST /upload/image/
+    Upload images to Cloudinary
+    Body: multipart/form-data with 'image' field
+    Optional: 'folder' field to specify Cloudinary folder
+    """
+    permission_classes = [AllowAny]  # Allow both authenticated and guest users
+    
+    def post(self, request):
+        from .cloudinary_utils import upload_to_cloudinary
+        
+        if 'image' not in request.FILES:
+            return Response(
+                {"error": "No image file provided"}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        image_file = request.FILES['image']
+        folder = request.data.get('folder', 'uploads')
+        
+        # Validate file size (max 10MB)
+        if image_file.size > 10 * 1024 * 1024:
+            return Response(
+                {"error": "File size too large. Maximum 10MB allowed."}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Validate file type
+        allowed_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif']
+        if image_file.content_type not in allowed_types:
+            return Response(
+                {"error": "Invalid file type. Only JPEG, PNG, WebP and GIF are allowed."}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Upload to Cloudinary
+        upload_result = upload_to_cloudinary(image_file, folder=folder)
+        
+        if upload_result['success']:
+            return Response({
+                "message": "Image uploaded successfully",
+                "image": {
+                    "public_id": upload_result['public_id'],
+                    "url": upload_result['url'],
+                    "width": upload_result['width'],
+                    "height": upload_result['height'],
+                    "format": upload_result['format'],
+                    "size_bytes": upload_result['bytes']
+                }
+            }, status=status.HTTP_200_OK)
+        else:
+            return Response(
+                {"error": f"Upload failed: {upload_result['error']}"}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 from .models import (
     CartPlan,
     FoodItem,

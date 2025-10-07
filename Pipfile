@@ -12,6 +12,7 @@ django-cors-headers = "*"
 pillow = "*"
 drf-yasg = "*"
 python-decouple = "*"
+cloudinary = "*"
 
 [dev-packages]
 
