@@ -2,6 +2,24 @@ from rest_framework import serializers
 from .models import Order, OrderItem, MealPlan
 
 
+class GuestOrderLookupSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    order_reference = serializers.CharField(max_length=64)
+
+    def validate(self, data):
+        """Validate that an order exists with the given email and reference"""
+        try:
+            order = Order.objects.get(
+                customer_email=data["email"], reference=data["order_reference"]
+            )
+            data["order"] = order
+        except Order.DoesNotExist:
+            raise serializers.ValidationError(
+                "No order found with this email and order reference"
+            )
+        return data
+
+
 class OrderSummarySerializer(serializers.ModelSerializer):
     package_type = serializers.SerializerMethodField()
     plan_duration = serializers.SerializerMethodField()

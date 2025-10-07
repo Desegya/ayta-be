@@ -1,10 +1,12 @@
 # --- Total Cart Meals Endpoint ---
 from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
-from .order_serializers import OrderSummarySerializer
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from accounts.authentication import CookieJWTAuthentication
+from .order_serializers import OrderSummarySerializer, GuestOrderLookupSerializer
 from collections import defaultdict
 from typing import Any, Dict, cast
 from django.conf import settings
@@ -40,11 +42,37 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, permissions
 
+
+# Helper functions for guest cart management
+def get_or_create_cart(request):
+    """Get or create cart for authenticated user or guest session"""
+    if request.user.is_authenticated:
+        cart, created = Cart.objects.get_or_create(user=request.user)
+    else:
+        # For guest users, use session key
+        if not request.session.session_key:
+            request.session.create()
+        session_key = request.session.session_key
+        cart, created = Cart.objects.get_or_create(session_key=session_key)
+    return cart
+
+
+def get_guest_session_key(request):
+    """Get or create session key for guest users"""
+    if not request.session.session_key:
+        request.session.create()
+    return request.session.session_key
+
+
 PAYSTACK_INIT_URL = "https://api.paystack.co/transaction/initialize"
 
 
 # --- User Past Orders Endpoint ---
 class UserPastOrdersView(APIView):
+    authentication_classes = [
+        CookieJWTAuthentication,
+        JWTAuthentication,
+    ]
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -54,10 +82,10 @@ class UserPastOrdersView(APIView):
 
 
 class TotalCartMealsView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def get(self, request):
-        cart, _ = Cart.objects.get_or_create(user=request.user)
+        cart = get_or_create_cart(request)
         total_meals = sum(item.quantity for item in cart.items.all())
         return Response({"total_meals": total_meals})
 
@@ -68,6 +96,8 @@ class AdminDefinedMealsByDayView(APIView):
     Groups meals by day.
     Query params: type=lean|dense, size=15|21
     """
+
+    permission_classes = [AllowAny]
 
     def get(self, request):
         plan_type = request.GET.get("type")
@@ -119,6 +149,8 @@ class AdminDefinedMealsByDayView(APIView):
 class MealPlanMealsView(APIView):
     """GET /meal-plans/{slug}/meals/ - returns the meal plan and its meals (by slug)"""
 
+    permission_classes = [AllowAny]
+
     def get(self, request, slug):
         plan = get_object_or_404(MealPlan, slug=slug)
         plan_serializer = MealPlanSimpleSerializer(plan)
@@ -133,6 +165,7 @@ class MealPlanMealsView(APIView):
 class DenseMealPlansView(generics.ListAPIView):
     """List all dense meal plans"""
 
+    permission_classes = [AllowAny]
     serializer_class = MealPlanSimpleSerializer
 
     def get_queryset(self):
@@ -142,6 +175,7 @@ class DenseMealPlansView(generics.ListAPIView):
 class LeanMealPlansView(generics.ListAPIView):
     """List all lean meal plans"""
 
+    permission_classes = [AllowAny]
     serializer_class = MealPlanSimpleSerializer
 
     def get_queryset(self):
@@ -149,6 +183,7 @@ class LeanMealPlansView(generics.ListAPIView):
 
 
 class MealPlanByTypeView(generics.ListAPIView):
+    permission_classes = [AllowAny]
     serializer_class = MealPlanSimpleSerializer
 
     def get_queryset(self):
@@ -157,6 +192,7 @@ class MealPlanByTypeView(generics.ListAPIView):
 
 
 class MealsByTypeCategoryView(generics.ListAPIView):
+    permission_classes = [AllowAny]
     serializer_class = FoodItemSerializer
 
     def get_queryset(self):
@@ -171,7 +207,7 @@ class MealsByTypeCategoryView(generics.ListAPIView):
 
 
 class CustomMealSelectionView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def post(self, request):
         meal_ids = request.data.get("meal_ids", [])
@@ -195,11 +231,13 @@ class CustomMealSelectionView(APIView):
 
 
 class FoodItemListView(generics.ListAPIView):
+    permission_classes = [AllowAny]
     queryset = FoodItem.objects.all()
     serializer_class = FoodItemListSerializer
 
 
 class LeanFoodItemListView(generics.ListAPIView):
+    permission_classes = [AllowAny]
     serializer_class = FoodItemListSerializer
 
     def get_queryset(self):
@@ -207,6 +245,7 @@ class LeanFoodItemListView(generics.ListAPIView):
 
 
 class DenseFoodItemListView(generics.ListAPIView):
+    permission_classes = [AllowAny]
     serializer_class = FoodItemListSerializer
 
     def get_queryset(self):
@@ -214,16 +253,17 @@ class DenseFoodItemListView(generics.ListAPIView):
 
 
 class FoodItemDetailView(generics.RetrieveAPIView):
+    permission_classes = [AllowAny]
     queryset = FoodItem.objects.all()
     serializer_class = FoodItemDetailSerializer
 
 
 # Cart Views
 class CartView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def get(self, request):
-        cart, _ = Cart.objects.get_or_create(user=request.user)
+        cart = get_or_create_cart(request)
         serializer = CartSerializer(cart)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -235,7 +275,7 @@ class AddPlanToCartView(APIView):
     Creates (or merges into) a CartPlan and creates CartItem rows for the plan's meals.
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def post(self, request):
         plan_id = request.data.get("plan_id")
@@ -262,7 +302,7 @@ class AddPlanToCartView(APIView):
                 {"error": "Cannot add a meal plan with no meals to cart."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        cart, _ = Cart.objects.get_or_create(user=request.user)
+        cart = get_or_create_cart(request)
 
         # If merging into an existing CartPlan for the same MealPlan is desired, do it.
         if merge:
@@ -319,7 +359,7 @@ class UpdateCustomCartItemView(APIView):
     - Returns the serialized Cart after mutation
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def post(self, request):
         food_id = request.data.get("food_item")
@@ -345,7 +385,7 @@ class UpdateCustomCartItemView(APIView):
             )
 
         food_item = get_object_or_404(FoodItem, id=food_id)
-        cart, _ = Cart.objects.get_or_create(user=request.user)
+        cart = get_or_create_cart(request)
 
         try:
             with transaction.atomic():
@@ -394,7 +434,7 @@ class AddCustomSelectionView(APIView):
     Creates or updates custom CartItem entries (cart_plan is NULL).
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def post(self, request):
         meal_ids = request.data.get("meal_ids")
@@ -406,7 +446,7 @@ class AddCustomSelectionView(APIView):
 
         quantities: Dict[str, Any] = request.data.get("quantities", {})
 
-        cart, _ = Cart.objects.get_or_create(user=request.user)
+        cart = get_or_create_cart(request)
 
         try:
             with transaction.atomic():
@@ -457,10 +497,10 @@ class RemoveFromCartView(APIView):
           { "food_item": <int> }     -> removes a custom item (cart_plan is NULL)
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def post(self, request):
-        cart, _ = Cart.objects.get_or_create(user=request.user)
+        cart = get_or_create_cart(request)
 
         cart_plan_id = request.data.get("cart_plan_id")
         food_item_id = request.data.get("food_item")
@@ -503,15 +543,18 @@ class RemoveFromCartView(APIView):
 
 
 class CheckoutView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]  # Allow both authenticated and guest users
 
     def post(self, request):
         # parse payload (you already have CheckoutSerializer — reuse it)
         serializer = CheckoutSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        data = serializer.validated_data
+        # Type cast - validated_data is guaranteed to be dict after is_valid(raise_exception=True)
+        data = cast(Dict[str, Any], serializer.validated_data)
 
-        cart, _ = Cart.objects.get_or_create(user=request.user)
+        # Get cart for authenticated user or guest
+        cart = get_or_create_cart(request)
+
         if not cart.items.exists() and not cart.plans.exists():
             return Response({"error": "Cart empty"}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -524,19 +567,11 @@ class CheckoutView(APIView):
         # create order and items inside transaction
         with transaction.atomic():
             order = Order.objects.create(
-                user=request.user,
-                customer_full_name=(
-                    data["full_name"]
-                    if isinstance(data, dict) and "full_name" in data
-                    else None
-                ),
-                customer_email=(
-                    data.get("email") if isinstance(data, dict) else request.user.email
-                ),
-                customer_phone=(
-                    data.get("phone_number") if isinstance(data, dict) else None
-                ),
-                address=data.get("address") if isinstance(data, dict) else None,
+                user=request.user if request.user.is_authenticated else None,
+                customer_full_name=data["full_name"],
+                customer_email=data["email"],
+                customer_phone=data["phone_number"],
+                address=data["address"],
                 subtotal=subtotal,
                 tax=Decimal("0.00"),
                 shipping=Decimal("0.00"),
@@ -600,6 +635,10 @@ class CheckoutView(APIView):
             # create payment record
             p = PaymentTransaction.objects.create(order=order, gateway="paystack")
 
+            # Clear the cart after order creation
+            cart.items.all().delete()
+            cart.plans.all().delete()
+
         # init paystack transaction
         amount_kobo = int((order.total * Decimal("100")).quantize(Decimal("1")))
         callback_url = request.build_absolute_uri(reverse("paystack-verify"))
@@ -610,7 +649,8 @@ class CheckoutView(APIView):
             "callback_url": callback_url,
             "metadata": {
                 "order_id": order.pk,
-                "user_id": request.user.id,
+                "user_id": request.user.id if request.user.is_authenticated else None,
+                "is_guest": not request.user.is_authenticated,
             },
         }
         headers = {
@@ -679,7 +719,7 @@ class OrderSummaryView(APIView):
         + sum(quantity of each custom item)
     """
 
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def get(self, request):
         return self._get_summary(request)
@@ -688,7 +728,7 @@ class OrderSummaryView(APIView):
         return self._get_summary(request)
 
     def _get_summary(self, request):
-        cart, _ = Cart.objects.get_or_create(user=request.user)
+        cart = get_or_create_cart(request)
 
         cart_plans = list(cart.plans.select_related("meal_plan").all())
         custom_items_qs = cart.items.filter(cart_plan__isnull=True).select_related(
@@ -773,7 +813,11 @@ class OrderSummaryView(APIView):
 
         # Build response
         resp = {
-            "receipt_for": getattr(request.user, "username", str(request.user)),
+            "receipt_for": (
+                getattr(request.user, "username", str(request.user))
+                if request.user.is_authenticated
+                else "Guest User"
+            ),
             "package_type": package_type,
             "total_meals": f"{total_meals} meals",
             "total_macros": {
@@ -794,3 +838,27 @@ class OrderSummaryView(APIView):
             resp["plan_duration"] = plan_duration
 
         return Response(resp, status=status.HTTP_200_OK)
+
+
+class GuestOrderTrackingView(APIView):
+    """
+    POST /orders/track/
+    Body: { "email": "guest@example.com", "order_reference": "abc123" }
+    Returns order details for guest users without authentication
+    """
+
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = GuestOrderLookupSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        # Type cast - validated_data is guaranteed to be dict after is_valid(raise_exception=True)
+        validated_data = cast(Dict[str, Any], serializer.validated_data)
+        order = validated_data["order"]
+        order_serializer = OrderSummarySerializer(order)
+
+        return Response(
+            {"order": order_serializer.data, "message": "Order found successfully"},
+            status=status.HTTP_200_OK,
+        )

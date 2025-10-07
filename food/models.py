@@ -207,12 +207,36 @@ class CartPlan(models.Model):
 class Cart(models.Model):
     items: models.Manager["CartItem"]  # type: ignore
     plans: Manager["CartPlan"]
-    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True
+    )
+    # For guest sessions - use session key or temporary identifier
+    session_key = models.CharField(max_length=40, null=True, blank=True)
+    # Guest contact info (optional, for pre-filling checkout)
+    guest_email = models.EmailField(null=True, blank=True)
+    guest_phone = models.CharField(max_length=64, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"Cart of {getattr(self.user, 'username', str(self.user))}"
+        if self.user:
+            return f"Cart of {getattr(self.user, 'username', str(self.user))}"
+        return f"Guest Cart ({self.session_key})"
+
+    class Meta:
+        # Ensure one cart per user OR one cart per session_key
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user"],
+                condition=models.Q(user__isnull=False),
+                name="unique_user_cart",
+            ),
+            models.UniqueConstraint(
+                fields=["session_key"],
+                condition=models.Q(session_key__isnull=False),
+                name="unique_session_cart",
+            ),
+        ]
 
     @property
     def total_price(self):

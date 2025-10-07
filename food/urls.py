@@ -21,6 +21,7 @@ from .views import (
     TotalCartMealsView,
     UpdateCustomCartItemView,
     UserPastOrdersView,
+    GuestOrderTrackingView,
 )
 
 
@@ -47,6 +48,9 @@ urlpatterns = [
     path("cart/summary/", OrderSummaryView.as_view(), name="cart-summary"),
     path("payments/verify/", paystack_verify_redirect, name="paystack-verify"),
     path("orders/past/", UserPastOrdersView.as_view(), name="user-past-orders"),
+    path(
+        "orders/track/", GuestOrderTrackingView.as_view(), name="guest-order-tracking"
+    ),
     path("plans/by-type/", MealPlanByTypeView.as_view(), name="plans-by-type"),
     path(
         "plans/admin-meals-by-day/",

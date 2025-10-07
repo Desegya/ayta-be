@@ -51,4 +51,10 @@ class CheckoutSerializer(serializers.Serializer):
     full_name = serializers.CharField(max_length=255)
     address = serializers.CharField(max_length=1024)
     phone_number = serializers.CharField(max_length=32)
-    email = serializers.EmailField(required=False, allow_null=True, allow_blank=True)
+    email = serializers.EmailField(required=True)  # Required for guest checkout
+
+    def validate_email(self, value):
+        """Ensure email is provided for guest checkout"""
+        if not value:
+            raise serializers.ValidationError("Email is required for checkout")
+        return value
