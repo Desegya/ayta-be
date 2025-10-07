@@ -64,6 +64,62 @@ def get_guest_session_key(request):
     return request.session.session_key
 
 
+def merge_guest_cart_to_user(user, session_key):
+    """
+    Merge guest cart items into user's cart when they log in.
+    Returns the user's cart with merged items.
+    """
+    from django.db import transaction
+
+    try:
+        # Get guest cart
+        guest_cart = Cart.objects.get(session_key=session_key)
+    except Cart.DoesNotExist:
+        # No guest cart exists, just return user's cart
+        user_cart, _ = Cart.objects.get_or_create(user=user)
+        return user_cart
+
+    # Get or create user cart
+    user_cart, _ = Cart.objects.get_or_create(user=user)
+
+    with transaction.atomic():
+        # Merge CartPlans (meal plans)
+        for guest_plan in guest_cart.plans.all():
+            # Check if user already has this meal plan in cart
+            existing_plan = user_cart.plans.filter(
+                meal_plan=guest_plan.meal_plan
+            ).first()
+            if existing_plan:
+                # Increase quantity
+                existing_plan.quantity += guest_plan.quantity
+                existing_plan.save()
+            else:
+                # Move the plan to user cart
+                guest_plan.cart = user_cart
+                guest_plan.save()
+
+        # Merge CartItems (individual food items)
+        for guest_item in guest_cart.items.all():
+            # Check if user already has this food item with same cart_plan
+            existing_item = user_cart.items.filter(
+                food_item=guest_item.food_item, cart_plan=guest_item.cart_plan
+            ).first()
+
+            if existing_item:
+                # Increase quantity
+                existing_item.quantity += guest_item.quantity
+                existing_item.save()
+            else:
+                # Move the item to user cart
+                guest_item.cart = user_cart
+                guest_item.save()
+
+        # Delete the now-empty guest cart
+        guest_cart.delete()
+
+    return user_cart
+
+
 PAYSTACK_INIT_URL = "https://api.paystack.co/transaction/initialize"
 
 
@@ -852,7 +908,7 @@ class GuestOrderTrackingView(APIView):
     def post(self, request):
         serializer = GuestOrderLookupSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        
+
         # Type cast - validated_data is guaranteed to be dict after is_valid(raise_exception=True)
         validated_data = cast(Dict[str, Any], serializer.validated_data)
         order = validated_data["order"]
@@ -862,3 +918,39 @@ class GuestOrderTrackingView(APIView):
             {"order": order_serializer.data, "message": "Order found successfully"},
             status=status.HTTP_200_OK,
         )
+
+
+class MergeGuestCartView(APIView):
+    """
+    POST /cart/merge/
+    Merge guest cart with authenticated user's cart after login.
+    Should be called immediately after successful login.
+    """
+
+    authentication_classes = [CookieJWTAuthentication, JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        session_key = request.data.get("session_key")
+
+        if not session_key:
+            return Response(
+                {"error": "session_key is required"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            # Merge guest cart into user cart
+            merged_cart = merge_guest_cart_to_user(request.user, session_key)
+
+            # Return the merged cart data
+            serializer = CartSerializer(merged_cart)
+            return Response(
+                {"message": "Cart merged successfully", "cart": serializer.data},
+                status=status.HTTP_200_OK,
+            )
+
+        except Exception as e:
+            return Response(
+                {"error": f"Failed to merge cart: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )

@@ -22,6 +22,7 @@ from .views import (
     UpdateCustomCartItemView,
     UserPastOrdersView,
     GuestOrderTrackingView,
+    MergeGuestCartView,
 )
 
 
@@ -46,6 +47,7 @@ urlpatterns = [
     path("cart/remove-item/", RemoveFromCartView.as_view(), name="remove-from-cart"),
     path("cart/checkout/", CheckoutView.as_view(), name="cart-checkout"),
     path("cart/summary/", OrderSummaryView.as_view(), name="cart-summary"),
+    path("cart/merge/", MergeGuestCartView.as_view(), name="merge-guest-cart"),
     path("payments/verify/", paystack_verify_redirect, name="paystack-verify"),
     path("orders/past/", UserPastOrdersView.as_view(), name="user-past-orders"),
     path(
