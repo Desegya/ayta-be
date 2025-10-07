@@ -39,7 +39,7 @@ class FoodItem(models.Model):
     fat = models.FloatField(help_text="g Fat")
     food_type = models.CharField(max_length=10, choices=FOOD_TYPE_CHOICES)
     category = models.CharField(max_length=20, choices=CATEGORY_CHOICES)
-    image = CloudinaryField('image', blank=True, null=True)
+    image = CloudinaryField("image", blank=True, null=True)
     spice_level = models.PositiveSmallIntegerField(
         choices=SPICE_LEVEL_CHOICES,
         null=True,
