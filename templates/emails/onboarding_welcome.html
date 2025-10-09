@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to AyTa</title>
+    <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Quicksand', Arial, sans-serif;
+        }
+        .email-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            
+        }
+        .header {
+            background-color: #ffffff;
+            padding: 20px;
+           
+        }
+        .logo {
+            color: #4caf50;
+            font-size: 32px;
+            font-weight: bold;
+            margin: 0;
+        }
+        .icon-section {
+            text-align: center;
+            padding: 20px;
+       
+            margin: 20px;
+        }
+        
+     
+     
+        .main-content {
+           
+            margin: 20px;
+            padding: 30px;
+        }
+        .welcome-title {
+            color: #000;
+            font-size: 18px;
+            font-weight: 600;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .greeting-text {
+            color: #444;
+            font-size: 10px;
+            line-height: 1.8;
+            margin-bottom: 20px;
+            font-weight: 500;
+        }
+        .bullet-points {
+            margin: 20px 0;
+        }
+        .bullet-point {
+            color: #333;
+            font-size: 16px;
+            margin: 10px 0;
+            display: flex;
+            align-items: center;
+        }
+        .bullet-point::before {
+            content: "👍";
+            margin-right: 10px;
+        }
+        .cta-button {
+            background-color: #4caf50;
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: bold;
+            text-decoration: none;
+            display: inline-block;
+            margin: 20px auto;
+            text-align: center;
+        }
+        .cta-container {
+            text-align: center;
+        }
+        @media (max-width: 600px) {
+            .food-bowl-img {
+                width: 250px;
+                height: 150px;
+            }
+            .main-content {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <div class="header">
+            <h1 class="logo">AyTa</h1>
+        </div>
+    
+        
+        <div class="main-content">
+            <h2 class="welcome-title">Welcome to AyTa - Let's<br>Fuel Your Goals!</h2>
+            
+          
+            
+            <div class="greeting-text">
+                Hi {{ user.full_name|default:"[First Name]" }},<br><br>
+                Welcome aboard! You've just joined AyTa - where every meal is crafted to match your fitness journey.
+            </div>
+            
+            <div class="bullet-points">
+                <div class="bullet-point">Start by exploring your Lean or Dense meal plans.</div>
+                <div class="bullet-point">Track your macros, stay consistent, and hit your daily goals.</div>
+            </div>
+            
+            <div class="cta-container">
+                <a href="{{ app_url }}" class="cta-button">Explore Menu</a>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

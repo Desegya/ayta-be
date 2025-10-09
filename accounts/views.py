@@ -52,16 +52,16 @@ class SignupView(APIView):
         user = cast(User, created_user)  # <- satisfy Pylance / type checker
 
         # Send welcome email
-        from food.email_utils import send_welcome_email
+        from .email_utils import send_onboarding_email
 
         try:
-            send_welcome_email(user)
+            send_onboarding_email(user)
         except Exception as e:
             # Log error but don't prevent signup
             import logging
 
             logger = logging.getLogger(__name__)
-            logger.error(f"Failed to send welcome email to {user.email}: {str(e)}")
+            logger.error(f"Failed to send onboarding email to {user.email}: {str(e)}")
 
         # Optionally log the user into the session (if using session auth)
         login(request, user)
