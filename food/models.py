@@ -320,8 +320,8 @@ class Order(models.Model):
         self.status = self.STATUS_PAID
         self.save(update_fields=["status", "updated_at"])
 
-        # Send order receipt email
-        from .email_utils import send_order_receipt_email
+        # Send order receipt email using reliable Zoho SMTP
+        from accounts.zoho_email_utils import send_order_receipt_email
 
         try:
             send_order_receipt_email(self)

@@ -51,13 +51,13 @@ class SignupView(APIView):
         created_user = serializer.save()  # returns the created User instance
         user = cast(User, created_user)  # <- satisfy Pylance / type checker
 
-        # Send welcome email
-        from .email_utils import send_onboarding_email
+        # Send welcome email using reliable Zoho SMTP
+        from accounts.zoho_email_utils import send_onboarding_email
 
         try:
             send_onboarding_email(user)
         except Exception as e:
-            # Log error but don't prevent signup
+            # Log the error but don't fail the registration
             import logging
 
             logger = logging.getLogger(__name__)
@@ -326,7 +326,7 @@ class PasswordResetRequestView(APIView):
     def post(self, request):
         from .serializers import PasswordResetRequestSerializer
         from .models import PasswordResetOTP
-        from food.email_utils import send_password_reset_otp_email
+        from accounts.zoho_email_utils import send_password_reset_otp_email
 
         serializer = PasswordResetRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)

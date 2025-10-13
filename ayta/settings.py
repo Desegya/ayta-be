@@ -196,15 +196,13 @@ CORS_ALLOWED_ORIGINS = [
 
 CORS_ALLOW_CREDENTIALS = True
 
-# Email Configuration
-EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
-DEFAULT_FROM_EMAIL = "AyTa Meal Prep <noreply@ayta.com>"
-EMAIL_SUBJECT_PREFIX = "[AyTa] "
-
-# For production, you would use something like:
-# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-# EMAIL_HOST = 'smtp.gmail.com'
-# EMAIL_PORT = 587
-# EMAIL_USE_TLS = True
-# EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
-# EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
+# Email (Zoho) - Using custom backend to handle SSL certificate issues
+EMAIL_BACKEND = "accounts.email_backend.ZohoEmailBackend"
+EMAIL_HOST = config("EMAIL_HOST", default="smtp.zoho.com")
+EMAIL_PORT = config("EMAIL_PORT", default=465, cast=int)  # Use SSL port 465
+EMAIL_USE_TLS = False  # Don't use TLS with SSL port
+EMAIL_USE_SSL = True  # Use SSL for port 465
+EMAIL_HOST_USER = config("EMAIL_HOST_USER", default="")
+EMAIL_HOST_PASSWORD = config("EMAIL_HOST_PASSWORD", default="")
+DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", default=EMAIL_HOST_USER)
+EMAIL_TIMEOUT = config("EMAIL_TIMEOUT", default=60, cast=int)

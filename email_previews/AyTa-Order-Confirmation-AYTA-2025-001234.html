@@ -219,7 +219,7 @@
         <div class="content">
             <h1 class="title">Order Confirmed</h1>
             
-            <div class="greeting">Hi {{ order.customer_full_name|default:"there" }},</div>
+            <div class="greeting">Hi Jane Smith,</div>
             
             <div class="message">
                 Thanks for choosing AYTA!<br>
@@ -231,15 +231,15 @@
                 <div class="section-title">Order Details</div>
                 <div class="info-row">
                     <span class="info-label">Order Number:</span>
-                    <span class="info-value">{{ order.reference }}</span>
+                    <span class="info-value">AYTA-2025-001234</span>
                 </div>
                 <div class="info-row">
                     <span class="info-label">Order Date:</span>
-                    <span class="info-value">{{ order.created_at|date:"M d, Y" }}</span>
+                    <span class="info-value"></span>
                 </div>
                 <div class="info-row">
                     <span class="info-label">Status:</span>
-                    <span class="info-value highlight">{{ order.get_status_display }}</span>
+                    <span class="info-value highlight">Confirmed</span>
                 </div>
             </div>
 
@@ -248,64 +248,59 @@
                 <div class="section-title">Customer Information</div>
                 <div class="info-row">
                     <span class="info-label">Name:</span>
-                    <span class="info-value">{{ order.customer_full_name }}</span>
+                    <span class="info-value">Jane Smith</span>
                 </div>
                 <div class="info-row">
                     <span class="info-label">Email:</span>
-                    <span class="info-value">{{ order.customer_email }}</span>
+                    <span class="info-value">jane@example.com</span>
                 </div>
                 <div class="info-row">
                     <span class="info-label">Phone:</span>
-                    <span class="info-value">{{ order.customer_phone|default:"Not provided" }}</span>
+                    <span class="info-value">+234 801 234 5678</span>
                 </div>
             </div>
 
             <!-- Order Items -->
             <div class="info-section">
                 <div class="section-title">Order Items</div>
-                {% for item in order.items.all %}
+                
                 <div class="order-item">
                     <div class="item-header">
                         <div class="item-name">
-                            {{ item.name }}
-                            {% if item.food_item.spice_level %}
-                                <span class="spice-level">🌶️ {{ item.food_item.get_spice_level_display_name }}</span>
-                            {% endif %}
+                            Jollof Rice with Grilled Chicken
+                            
+                                <span class="spice-level">🌶️ Medium</span>
+                            
                         </div>
-                        <div class="item-price">₦{{ item.total_price|floatformat:2 }}</div>
+                        <div class="item-price">₦7000.00</div>
                     </div>
                     <div class="item-details">
-                        Quantity: {{ item.quantity }} × ₦{{ item.unit_price|floatformat:2 }}
-                        {% if item.food_item %}
-                        <br>{{ item.food_item.calories }} calories per serving
-                        <br>{{ item.food_item.get_food_type_display }} • {{ item.food_item.get_category_display }}
-                        {% endif %}
+                        Quantity: 2 × ₦3500.00
+                        
+                        <br>450 calories per serving
+                        <br>Nigerian • Main Course
+                        
                     </div>
                 </div>
-                {% endfor %}
+                
             </div>
 
             <!-- Order Total -->
             <div class="total-section">
                 <div class="total-row">
                     <span>Subtotal:</span>
-                    <span>₦{{ order.subtotal|floatformat:2 }}</span>
+                    <span>₦7000.00</span>
                 </div>
-                {% if order.tax > 0 %}
-                <div class="total-row">
-                    <span>Tax:</span>
-                    <span>₦{{ order.tax|floatformat:2 }}</span>
-                </div>
-                {% endif %}
-                {% if order.shipping > 0 %}
+                
+                
                 <div class="total-row">
                     <span>Delivery Fee:</span>
-                    <span>₦{{ order.shipping|floatformat:2 }}</span>
+                    <span>₦1000.00</span>
                 </div>
-                {% endif %}
+                
                 <div class="total-final">
                     <span>Total:</span>
-                    <span>₦{{ order.total|floatformat:2 }}</span>
+                    <span>₦8000.00</span>
                 </div>
             </div>
 
