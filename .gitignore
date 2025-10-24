@@ -19,10 +19,6 @@ Pipfile.lock
 # Env
 .env
 
-# Migrations
-**/migrations/*
-!**/migrations/__init__.py
-
 # Other
 *.sqlite3
 *.env
