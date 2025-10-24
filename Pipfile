@@ -13,6 +13,7 @@ pillow = "*"
 drf-yasg = "*"
 python-decouple = "*"
 cloudinary = "*"
+gunicorn = "*"
 
 [dev-packages]
 

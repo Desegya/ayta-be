@@ -20,5 +20,4 @@ Pipfile.lock
 .env
 
 # Other
-*.sqlite3
 *.env
