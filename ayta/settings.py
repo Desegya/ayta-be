@@ -59,7 +59,9 @@ else:
     # Production - use Cloudinary
     DEFAULT_FILE_STORAGE = "cloudinary_storage.storage.MediaCloudinaryStorage"
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    "ayta-be-production.up.railway.app",
+]
 
 
 # Application definition
