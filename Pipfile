@@ -15,6 +15,7 @@ python-decouple = "*"
 cloudinary = "*"
 gunicorn = "*"
 mysqlclient = "*"
+whitenoise = "*"
 
 [dev-packages]
 
