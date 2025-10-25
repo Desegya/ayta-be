@@ -14,6 +14,7 @@ drf-yasg = "*"
 python-decouple = "*"
 cloudinary = "*"
 gunicorn = "*"
+mysqlclient = "*"
 
 [dev-packages]
 

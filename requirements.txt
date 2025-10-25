@@ -11,6 +11,7 @@ drf-yasg==1.21.10
 gunicorn==23.0.0
 idna==3.10
 inflection==0.5.1
+mysqlclient==2.2.7
 packaging==25.0
 pillow==11.3.0
 PyJWT==2.10.1
