@@ -64,6 +64,11 @@ ALLOWED_HOSTS = [
     "ayta-pi.vercel.app",
 ]
 
+# CSRF trusted origins for production
+CSRF_TRUSTED_ORIGINS = [
+    "https://ayta-be-production.up.railway.app",
+]
+
 
 # Application definition
 
