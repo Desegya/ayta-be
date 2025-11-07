@@ -6,15 +6,15 @@ import smtplib
 from email.message import EmailMessage
 import ssl
 
-# Zoho Mail configuration
-HOST = "smtp.zoho.com"
-PORT = 465  # SSL port
-USER = "desmond@dezzi.dev"
-PASS = "ZEd6AtU9YNm9"
+# Zoho Mail configuration for PAID account
+HOST = "smtppro.zoho.com"
+PORT = 465  # SSL port for professional
+USER = "info@ayta.com.ng"
+PASS = "JEj11FFAeqLc"
 
 
 def test_zoho_mail():
-    print("Testing Zoho Mail SMTP...")
+    print("Testing Zoho Mail Professional SMTP with SSL...")
     print(f"Host: {HOST}")
     print(f"Port: {PORT}")
     print(f"User: {USER}")
@@ -22,11 +22,11 @@ def test_zoho_mail():
     try:
         # Create message
         msg = EmailMessage()
-        msg["Subject"] = "AyTa - Zoho SMTP Test"
+        msg["Subject"] = "AyTa - Zoho Professional SMTP Test (SSL)"
         msg["From"] = f"AyTa Meal Prep <{USER}>"
-        msg["To"] = "egyadesm@gmail.com"  # Send to yourself for testing
+        msg["To"] = "egyadesmond@gmail.com"  # Send to egyadesmond@gmail.com
         msg.set_content(
-            "Hello from AyTa backend! This is a test email to verify Zoho SMTP configuration."
+            "Hello from AyTa backend! This is a test email to verify Zoho Professional SMTP configuration using SSL."
         )
 
         # Create SSL context with less strict verification
@@ -34,7 +34,7 @@ def test_zoho_mail():
         context.check_hostname = False
         context.verify_mode = ssl.CERT_NONE
 
-        print("Connecting to Zoho Mail...")
+        print("Connecting to Zoho Mail Professional...")
         with smtplib.SMTP_SSL(HOST, PORT, context=context, timeout=30) as server:
             print("Connected! Logging in...")
             server.login(USER, PASS)

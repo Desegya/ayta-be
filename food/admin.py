@@ -15,9 +15,9 @@ from .models import (
     PaymentTransaction,
 )
 
-admin.site.site_header = "AyTa Meal Prep"
-admin.site.site_title = "AyTa Meal Prep"
-admin.site.index_title = "AyTa Meal Prep Administration"
+admin.site.site_header = "AyTa"
+admin.site.site_title = "AyTa"
+admin.site.index_title = "AyTa Administration"
 
 
 class CartItemInline(admin.TabularInline):

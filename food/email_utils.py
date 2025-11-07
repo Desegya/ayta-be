@@ -137,12 +137,12 @@ def send_welcome_email(user):
         bool: True if email sent successfully, False otherwise
     """
     try:
-        subject = "Welcome to AyTa Meal Prep!"
+        subject = "Welcome to AyTa!"
 
         email_body = f"""
 Dear {user.full_name},
 
-Welcome to AyTa Meal Prep! 🍽️
+Welcome to AyTa! 🍽️
 
 We're excited to have you join our community of food lovers. With AyTa, you can:
 
@@ -154,14 +154,14 @@ We're excited to have you join our community of food lovers. With AyTa, you can:
 
 Ready to get started? Visit our website and place your first order!
 
-If you have any questions, don't hesitate to reach out to us at support@ayta.com
+If you have any questions, don't hesitate to reach out to us at info@ayta.com.ng
 
 Best regards,
 The AyTa Team
 
 ---
 This email was sent to {user.email}
-© {timezone.now().year} AyTa Meal Prep. All rights reserved.
+© {timezone.now().year} AyTa. All rights reserved.
         """
 
         # Create and send email
@@ -220,7 +220,7 @@ def send_password_reset_otp_email(user, otp_code):
         except Exception:
             # Fallback to simple text email if templates don't exist yet
             text_body = f"""
-AyTa Meal Prep - Password Reset Code
+AyTa - Password Reset Code
 
 Dear {user.full_name},
 
@@ -235,14 +235,14 @@ If you didn't request this password reset, please ignore this email and your pas
 For security reasons:
 • Don't share this code with anyone
 • Only use this code on the official AyTa website
-• Contact support@ayta.com if you need help
+• Contact info@ayta.com.ng if you need help
 
 Best regards,
 The AyTa Team
 
 ---
 This email was sent to {user.email}
-© {timezone.now().year} AyTa Meal Prep. All rights reserved.
+© {timezone.now().year} AyTa. All rights reserved.
             """
 
             email = EmailMultiAlternatives(

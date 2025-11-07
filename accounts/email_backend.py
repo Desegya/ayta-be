@@ -13,18 +13,19 @@ class ZohoEmailBackend(DjangoEmailBackend):
 
     def open(self):
         """
-        Override the open method to use relaxed SSL context
+        Override the open method to use relaxed SSL context for both SSL and TLS
         """
         if self.connection:
             return False
 
         # Create SSL context with relaxed verification (like our test script)
-        if self.use_ssl:
-            import smtplib
+        context = ssl.create_default_context()
+        context.check_hostname = False
+        context.verify_mode = ssl.CERT_NONE
 
-            context = ssl.create_default_context()
-            context.check_hostname = False
-            context.verify_mode = ssl.CERT_NONE
+        if self.use_ssl:
+            # SSL connection (port 465)
+            import smtplib
 
             try:
                 timeout = self.timeout or 60  # Default to 60 seconds if None
@@ -35,8 +36,20 @@ class ZohoEmailBackend(DjangoEmailBackend):
                 if not self.fail_silently:
                     raise
                 return False
+        elif self.use_tls:
+            # TLS connection (port 587)
+            import smtplib
+
+            try:
+                timeout = self.timeout or 60
+                self.connection = smtplib.SMTP(self.host, self.port, timeout=timeout)
+                self.connection.starttls(context=context)
+            except OSError:
+                if not self.fail_silently:
+                    raise
+                return False
         else:
-            # Use the parent's implementation for non-SSL connections
+            # Use the parent's implementation for plain connections
             return super().open()
 
         # Login

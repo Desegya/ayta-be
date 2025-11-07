@@ -21,7 +21,7 @@ def send_onboarding_email(user):
         "emails/onboarding_welcome.html",
         {
             "user": user,
-            "app_url": getattr(settings, "FRONTEND_URL", "https://ayta.com"),
+            "app_url": getattr(settings, "FRONTEND_URL", "https://ayta.com.ng"),
         },
     )
 

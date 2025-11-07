@@ -114,7 +114,7 @@ class Command(BaseCommand):
             # Zoho Mail configuration (same as test script)
             HOST = "smtp.zoho.com"
             PORT = 465
-            USER = "desmond@dezzi.dev"
+            USER = "info@ayta.com.ng"
             PASS = "ZEd6AtU9YNm9"
 
             # Create message

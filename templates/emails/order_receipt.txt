@@ -1,4 +1,4 @@
-AyTa Meal Prep - Order Receipt
+AyTa - Order Receipt
 
 ===============================================
 ORDER CONFIRMATION
@@ -71,11 +71,11 @@ NEED HELP?
 
 If you have any questions about your order, please don't hesitate to contact us:
 
-📧 Email: support@ayta.com
+📧 Email: info@ayta.com.ng
 📞 Phone: +234 xxx xxx xxxx
-🌐 Website: www.ayta.com
+🌐 Website: www.ayta.com.ng
 
-Thank you for choosing AyTa Meal Prep!
+Thank you for choosing AyTa!
 
 Best regards,
 The AyTa Team
@@ -83,4 +83,4 @@ The AyTa Team
 ---
 This email was sent to {{ order.customer_email }}
 Order Reference: {{ order.reference }}
-© {{ current_year }} AyTa Meal Prep. All rights reserved.
+© {{ current_year }} AyTa. All rights reserved.
