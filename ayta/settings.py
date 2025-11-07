@@ -209,7 +209,7 @@ AUTH_USER_MODEL = "accounts.User"
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "https://ayta-pi.vercel.app",
-    "https://ayta.com.ng",
+    "https://www.ayta.com.ng",
 ]
 
 CORS_ALLOW_CREDENTIALS = True

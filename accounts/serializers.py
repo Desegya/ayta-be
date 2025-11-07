@@ -195,9 +195,11 @@ class PasswordResetRequestSerializer(serializers.Serializer):
             # Handle case where multiple users have the same email
             # This shouldn't happen normally, but we'll handle it gracefully
             # Get the most recently created user with this email
-            user = User.objects.filter(email=value).order_by('-date_joined').first()
+            user = User.objects.filter(email=value).order_by("-date_joined").first()
             if not user:
-                raise serializers.ValidationError("No user found with this email address.")
+                raise serializers.ValidationError(
+                    "No user found with this email address."
+                )
         return value
 
 
@@ -234,7 +236,11 @@ class PasswordResetVerifySerializer(serializers.Serializer):
         except User.MultipleObjectsReturned:
             # Handle case where multiple users have the same email
             # Get the most recently created user with this email
-            user = User.objects.filter(email=data["email"]).order_by('-date_joined').first()
+            user = (
+                User.objects.filter(email=data["email"])
+                .order_by("-date_joined")
+                .first()
+            )
             if not user:
                 raise serializers.ValidationError(
                     {"email": "No user found with this email address."}
@@ -287,7 +293,11 @@ class OTPVerifyOnlySerializer(serializers.Serializer):
         except User.MultipleObjectsReturned:
             # Handle case where multiple users have the same email
             # Get the most recently created user with this email
-            user = User.objects.filter(email=data["email"]).order_by('-date_joined').first()
+            user = (
+                User.objects.filter(email=data["email"])
+                .order_by("-date_joined")
+                .first()
+            )
             if not user:
                 raise serializers.ValidationError(
                     {"email": "No user found with this email address."}
@@ -348,7 +358,11 @@ class PasswordResetFinalSerializer(serializers.Serializer):
         except User.MultipleObjectsReturned:
             # Handle case where multiple users have the same email
             # Get the most recently created user with this email
-            user = User.objects.filter(email=data["email"]).order_by('-date_joined').first()
+            user = (
+                User.objects.filter(email=data["email"])
+                .order_by("-date_joined")
+                .first()
+            )
             if not user:
                 raise serializers.ValidationError(
                     {"email": "No user found with this email address."}
