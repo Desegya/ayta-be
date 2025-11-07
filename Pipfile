@@ -7,7 +7,6 @@ name = "pypi"
 django = "*"
 djangorestframework = "*"
 djangorestframework-simplejwt = "*"
-requests = "*"
 django-cors-headers = "*"
 pillow = "*"
 drf-yasg = "*"
@@ -16,6 +15,7 @@ cloudinary = "*"
 gunicorn = "*"
 mysqlclient = "*"
 whitenoise = "*"
+requests = "*"
 
 [dev-packages]
 

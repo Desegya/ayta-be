@@ -7,14 +7,16 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import ssl
 import logging
+import os
+from decouple import config
 
 logger = logging.getLogger(__name__)
 
-# Zoho Mail configuration
-SMTP_HOST = "smtp.zoho.com"
-SMTP_PORT = 465
-SMTP_USER = "info@ayta.com.ng"
-SMTP_PASSWORD = "ZEd6AtU9YNm9"
+# Zoho Mail configuration from environment variables
+SMTP_HOST = config("EMAIL_HOST", default="smtppro.zoho.com")
+SMTP_PORT = config("EMAIL_PORT", default=465, cast=int)
+SMTP_USER = config("EMAIL_HOST_USER", default="info@ayta.com.ng")
+SMTP_PASSWORD = config("EMAIL_HOST_PASSWORD", default="")
 
 
 def send_email_via_zoho(subject, html_content, recipient_email, text_content=None):

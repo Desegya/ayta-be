@@ -62,11 +62,18 @@ else:
 ALLOWED_HOSTS = [
     "ayta-be-production.up.railway.app",
     "ayta-pi.vercel.app",
+    "ayta.com.ng",
+    "localhost",
+    "127.0.0.1",
+    "0.0.0.0",  # For Docker/container environments
 ]
 
 # CSRF trusted origins for production
 CSRF_TRUSTED_ORIGINS = [
     "https://ayta-be-production.up.railway.app",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+    "http://localhost:3000",  # Frontend development server
 ]
 
 
