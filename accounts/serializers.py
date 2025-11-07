@@ -191,6 +191,13 @@ class PasswordResetRequestSerializer(serializers.Serializer):
             user = User.objects.get(email=value)
         except User.DoesNotExist:
             raise serializers.ValidationError("No user found with this email address.")
+        except User.MultipleObjectsReturned:
+            # Handle case where multiple users have the same email
+            # This shouldn't happen normally, but we'll handle it gracefully
+            # Get the most recently created user with this email
+            user = User.objects.filter(email=value).order_by('-date_joined').first()
+            if not user:
+                raise serializers.ValidationError("No user found with this email address.")
         return value
 
 
@@ -224,6 +231,15 @@ class PasswordResetVerifySerializer(serializers.Serializer):
             raise serializers.ValidationError(
                 {"email": "No user found with this email address."}
             )
+        except User.MultipleObjectsReturned:
+            # Handle case where multiple users have the same email
+            # Get the most recently created user with this email
+            user = User.objects.filter(email=data["email"]).order_by('-date_joined').first()
+            if not user:
+                raise serializers.ValidationError(
+                    {"email": "No user found with this email address."}
+                )
+            data["user"] = user
 
         # Validate OTP
         from .models import PasswordResetOTP
@@ -268,6 +284,15 @@ class OTPVerifyOnlySerializer(serializers.Serializer):
             raise serializers.ValidationError(
                 {"email": "No user found with this email address."}
             )
+        except User.MultipleObjectsReturned:
+            # Handle case where multiple users have the same email
+            # Get the most recently created user with this email
+            user = User.objects.filter(email=data["email"]).order_by('-date_joined').first()
+            if not user:
+                raise serializers.ValidationError(
+                    {"email": "No user found with this email address."}
+                )
+            data["user"] = user
 
         # Validate OTP
         from .models import PasswordResetOTP
@@ -320,6 +345,15 @@ class PasswordResetFinalSerializer(serializers.Serializer):
             raise serializers.ValidationError(
                 {"email": "No user found with this email address."}
             )
+        except User.MultipleObjectsReturned:
+            # Handle case where multiple users have the same email
+            # Get the most recently created user with this email
+            user = User.objects.filter(email=data["email"]).order_by('-date_joined').first()
+            if not user:
+                raise serializers.ValidationError(
+                    {"email": "No user found with this email address."}
+                )
+            data["user"] = user
 
         # Validate OTP (ensure it's still valid and not used)
         from .models import PasswordResetOTP

@@ -48,6 +48,7 @@ def validate_profile_picture(value):
 class User(AbstractUser):
     full_name = models.CharField(max_length=150)
     phone_number = models.CharField(max_length=20, unique=True)
+    email = models.EmailField(unique=True)  # Make email unique
     profile_picture = CloudinaryField(
         "image", blank=True, null=True, help_text="Profile picture stored on Cloudinary"
     )
