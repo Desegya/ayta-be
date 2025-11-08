@@ -63,7 +63,8 @@ ALLOWED_HOSTS = [
     "ayta-be-production.up.railway.app",
     "ayta-pi.vercel.app",
     "ayta.com.ng",
-    "api.ayta.com.ng" "localhost",
+    "api.ayta.com.ng",
+    "localhost",
     "127.0.0.1",
     "0.0.0.0",  # For Docker/container environments
 ]
