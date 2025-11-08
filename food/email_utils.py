@@ -6,6 +6,7 @@ from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
 from django.conf import settings
 from django.utils import timezone
+from accounts.zeptomail_utils import send_email_via_zeptomail
 import logging
 
 logger = logging.getLogger(__name__)
@@ -13,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 def send_order_receipt_email(order):
     """
-    Send order receipt email to customer
+    Send order receipt email to customer using ZeptoMail
 
     Args:
         order: Order instance
@@ -33,24 +34,25 @@ def send_order_receipt_email(order):
         text_content = render_to_string("emails/order_receipt.txt", context)
         html_content = render_to_string("emails/order_receipt.html", context)
 
-        # Create email message
-        email = EmailMultiAlternatives(
+        # Send via ZeptoMail
+        result = send_email_via_zeptomail(
             subject=subject,
-            body=text_content,
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            to=[order.customer_email],
+            html_content=html_content,
+            recipient_email=order.customer_email,
+            text_content=text_content,
+            recipient_name=order.customer_full_name,
         )
 
-        # Attach HTML version
-        email.attach_alternative(html_content, "text/html")
-
-        # Send email
-        email.send()
-
-        logger.info(
-            f"Order receipt email sent successfully for order {order.reference}"
-        )
-        return True
+        if result["success"]:
+            logger.info(
+                f"Order receipt email sent successfully for order {order.reference}"
+            )
+            return True
+        else:
+            logger.error(
+                f"Failed to send order receipt email for order {order.reference}: {result['message']}"
+            )
+            return False
 
     except Exception as e:
         logger.error(
@@ -61,7 +63,7 @@ def send_order_receipt_email(order):
 
 def send_order_status_update_email(order, status_message=None):
     """
-    Send order status update email to customer
+    Send order status update email to customer using ZeptoMail
 
     Args:
         order: Order instance
@@ -87,8 +89,8 @@ def send_order_status_update_email(order, status_message=None):
 
         subject = f"Order Update - {order.reference}"
 
-        # Simple text email for status updates
-        email_body = f"""
+        # Create text content
+        text_content = f"""
 Dear {order.customer_full_name},
 
 {message}
@@ -104,24 +106,50 @@ Best regards,
 The AyTa Team
         """
 
-        # Create and send email
-        email = EmailMultiAlternatives(
+        # Create HTML content
+        html_content = f"""
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #333;">Order Update</h2>
+            <p>Dear {order.customer_full_name},</p>
+            <p>{message}</p>
+            
+            <div style="background-color: #f8f9fa; padding: 20px; border-radius: 5px; margin: 20px 0;">
+                <h3 style="margin-top: 0;">Order Details:</h3>
+                <ul style="list-style: none; padding: 0;">
+                    <li><strong>Order Number:</strong> {order.reference}</li>
+                    <li><strong>Status:</strong> {order.get_status_display()}</li>
+                    <li><strong>Total:</strong> ₦{order.total}</li>
+                </ul>
+            </div>
+            
+            <p>You can contact us if you have any questions.</p>
+            <p>Best regards,<br>The AyTa Team</p>
+        </div>
+        """
+
+        # Send via ZeptoMail
+        result = send_email_via_zeptomail(
             subject=subject,
-            body=email_body.strip(),
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            to=[order.customer_email],
+            html_content=html_content,
+            recipient_email=order.customer_email,
+            text_content=text_content.strip(),
+            recipient_name=order.customer_full_name,
         )
 
-        email.send()
-
-        logger.info(
-            f"Order status update email sent for order {order.reference} - Status: {order.status}"
-        )
-        return True
+        if result["success"]:
+            logger.info(
+                f"Order status update email sent for order {order.reference} - Status: {order.status}"
+            )
+            return True
+        else:
+            logger.error(
+                f"Failed to send order status update email for order {order.reference}: {result['message']}"
+            )
+            return False
 
     except Exception as e:
         logger.error(
-            f"Failed to send status update email for order {order.reference}: {str(e)}"
+            f"Failed to send order status update email for order {order.reference}: {str(e)}"
         )
         return False
 

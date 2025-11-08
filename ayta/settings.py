@@ -221,15 +221,20 @@ CORS_ALLOWED_ORIGINS = [
 
 CORS_ALLOW_CREDENTIALS = True
 
-# Email (Zoho Professional) - Using custom backend to handle SSL certificate issues
-EMAIL_BACKEND = "accounts.email_backend.ZohoEmailBackend"
+# Email Configuration - ZeptoMail Transactional Email Service
+EMAIL_BACKEND = "accounts.zeptomail_backend.ZeptoMailBackend"
+
+# ZeptoMail Configuration
+ZEPTOMAIL_API_KEY = config("ZEPTOMAIL_API_KEY", default="")
+ZEPTOMAIL_FROM_EMAIL = config("ZEPTOMAIL_FROM_EMAIL", default="noreply@ayta.com.ng")
+ZEPTOMAIL_FROM_NAME = config("ZEPTOMAIL_FROM_NAME", default="AyTa")
+DEFAULT_FROM_EMAIL = ZEPTOMAIL_FROM_EMAIL
+
+# Legacy SMTP settings (kept for backwards compatibility, but not used with ZeptoMail)
 EMAIL_HOST = config("EMAIL_HOST", default="smtppro.zoho.com")
-EMAIL_PORT = config("EMAIL_PORT", default=465, cast=int)  # Use SSL port 465
-EMAIL_USE_TLS = config(
-    "EMAIL_USE_TLS", default=False, cast=bool
-)  # Don't use TLS with SSL port
-EMAIL_USE_SSL = config("EMAIL_USE_SSL", default=True, cast=bool)  # Use SSL for port 465
+EMAIL_PORT = config("EMAIL_PORT", default=465, cast=int)
+EMAIL_USE_TLS = config("EMAIL_USE_TLS", default=False, cast=bool)
+EMAIL_USE_SSL = config("EMAIL_USE_SSL", default=True, cast=bool)
 EMAIL_HOST_USER = config("EMAIL_HOST_USER", default="")
 EMAIL_HOST_PASSWORD = config("EMAIL_HOST_PASSWORD", default="")
-DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", default=EMAIL_HOST_USER)
 EMAIL_TIMEOUT = config("EMAIL_TIMEOUT", default=60, cast=int)

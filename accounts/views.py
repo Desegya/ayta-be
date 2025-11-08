@@ -326,7 +326,9 @@ class PasswordResetRequestView(APIView):
     def post(self, request):
         from .serializers import PasswordResetRequestSerializer
         from .models import PasswordResetOTP
-        from accounts.zoho_email_utils import send_password_reset_otp_email
+        from accounts.zeptomail_utils import send_email_via_zeptomail
+        from django.template.loader import render_to_string
+        from django.utils import timezone
 
         serializer = PasswordResetRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -341,10 +343,41 @@ class PasswordResetRequestView(APIView):
             # Create OTP for user
             otp = PasswordResetOTP.create_otp_for_user(user)
 
-            # Send OTP via email
-            email_sent = send_password_reset_otp_email(user, otp.otp_code)
+            # Prepare email content
+            subject = "Reset Your AyTa Password"
+            context = {
+                "user": user,
+                "otp_code": otp.otp_code,
+                "current_year": timezone.now().year,
+            }
 
-            if email_sent:
+            # Render HTML template
+            html_content = render_to_string("emails/password_reset_otp.html", context)
+
+            # Create plain text version
+            text_content = f"""
+Dear {user.first_name or 'User'},
+
+You requested to reset your AyTa account password. Use the following code to reset your password:
+
+Reset Code: {otp.otp_code}
+
+This code will expire in 10 minutes. If you didn't request this password reset, please ignore this email.
+
+Best regards,
+The AyTa Team
+            """.strip()
+
+            # Send OTP via ZeptoMail
+            email_result = send_email_via_zeptomail(
+                subject=subject,
+                html_content=html_content,
+                recipient_email=user.email,
+                text_content=text_content,
+                recipient_name=f"{user.first_name} {user.last_name}".strip(),
+            )
+
+            if email_result["success"]:
                 return Response(
                     {
                         "message": "Password reset code sent to your email.",
