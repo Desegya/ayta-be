@@ -226,6 +226,12 @@ CORS_ALLOWED_ORIGINS = [
 
 CORS_ALLOW_CREDENTIALS = True
 
+# Allow cross-site cookies for frontend on different origin (required for guest cart)
+SESSION_COOKIE_SAMESITE = "None"
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SAMESITE = "None"
+CSRF_COOKIE_SECURE = True
+
 # Email Configuration - ZeptoMail Transactional Email Service
 EMAIL_BACKEND = "accounts.zeptomail_backend.ZeptoMailBackend"
 
