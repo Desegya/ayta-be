@@ -14,6 +14,7 @@ from cloudinary.models import CloudinaryField
 # ---------- FoodItem unchanged ----------
 class FoodType(models.Model):
     name = models.CharField(max_length=50, unique=True)
+    description = models.TextField(blank=True)
     slug = models.SlugField(max_length=60, unique=True, blank=True)
     is_active = models.BooleanField(default=True)
 

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import FoodItem
+from .models import FoodItem, FoodType
 
 
 class FoodItemListSerializer(serializers.ModelSerializer):
@@ -58,3 +58,9 @@ class CheckoutSerializer(serializers.Serializer):
         if not value:
             raise serializers.ValidationError("Email is required for checkout")
         return value
+
+
+class FoodTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FoodType
+        fields = ["id", "name", "slug", "description"]

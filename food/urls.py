@@ -5,6 +5,7 @@ from .views import (
     AddPlanToCartView,
     FoodItemListView,
     FoodItemDetailView,
+    FoodTypeListView,
     CartView,
     OrderSummaryView,
     RemoveFromCartView,
@@ -25,6 +26,7 @@ from .views import (
 
 urlpatterns = [
     path("meals/", FoodItemListView.as_view(), name="meal-list"),
+    path("food-types/", FoodTypeListView.as_view(), name="food-type-list"),
     path("meals/by-type/", MealsByTypeCategoryView.as_view(), name="meals-by-type"),
     path("meals/<int:pk>/", FoodItemDetailView.as_view(), name="meal-detail"),
     path("cart/", CartView.as_view(), name="cart-view"),

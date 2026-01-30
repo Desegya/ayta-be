@@ -106,6 +106,7 @@ from .serializers import (
     CheckoutSerializer,
     FoodItemListSerializer,
     FoodItemDetailSerializer,
+    FoodTypeSerializer,
 )
 from .cart_serializers import CartSerializer
 from .plan_serializers import FoodItemSerializer, MealPlanSimpleSerializer
@@ -409,6 +410,14 @@ class FoodItemDetailView(generics.RetrieveAPIView):
     permission_classes = [AllowAny]
     queryset = FoodItem.objects.filter(is_available=True)
     serializer_class = FoodItemDetailSerializer
+
+
+class FoodTypeListView(generics.ListAPIView):
+    permission_classes = [AllowAny]
+    serializer_class = FoodTypeSerializer
+
+    def get_queryset(self):
+        return FoodType.objects.filter(is_active=True)
 
 
 # Cart Views

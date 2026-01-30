@@ -138,6 +138,10 @@ class FoodTypeAdmin(admin.ModelAdmin):
     list_filter = ("is_active",)
     search_fields = ("name", "slug")
     prepopulated_fields = {"slug": ("name",)}
+    fieldsets = (
+        (None, {"fields": ("name", "slug", "is_active")}),
+        ("Details", {"fields": ("description",)}),
+    )
 
 
 @admin.register(MealPlan)
