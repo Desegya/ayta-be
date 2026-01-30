@@ -117,22 +117,67 @@ from rest_framework import status, permissions
 
 
 # Helper functions for guest cart management
+def merge_carts(source_cart, target_cart):
+    """Move/merge items and plans from source_cart into target_cart."""
+    for source_plan in source_cart.plans.all():
+        existing_plan = target_cart.plans.filter(
+            meal_plan=source_plan.meal_plan
+        ).first()
+        if existing_plan:
+            existing_plan.quantity += source_plan.quantity
+            existing_plan.save()
+            source_plan.delete()
+        else:
+            source_plan.cart = target_cart
+            source_plan.save()
+
+    for source_item in source_cart.items.all():
+        existing_item = target_cart.items.filter(
+            food_item=source_item.food_item, cart_plan=source_item.cart_plan
+        ).first()
+        if existing_item:
+            existing_item.quantity += source_item.quantity
+            existing_item.save()
+            source_item.delete()
+        else:
+            source_item.cart = target_cart
+            source_item.save()
+
+
 def get_or_create_cart(request):
     """Get or create cart for authenticated user or guest session"""
     if request.user.is_authenticated:
-        cart, created = Cart.objects.get_or_create(user=request.user)
+        carts = Cart.objects.filter(user=request.user).order_by("-updated_at", "-id")
+        if not carts.exists():
+            cart = Cart.objects.create(user=request.user)
+        else:
+            cart = carts.first()
+            for extra_cart in carts[1:]:
+                merge_carts(extra_cart, cart)
+                extra_cart.delete()
     else:
         # For guest users, use session key
         if not request.session.session_key:
             request.session.create()
         session_key = request.session.session_key
-        cart, created = Cart.objects.get_or_create(session_key=session_key)
+        carts = Cart.objects.filter(session_key=session_key).order_by(
+            "-updated_at", "-id"
+        )
+        if not carts.exists():
+            cart = Cart.objects.create(session_key=session_key)
+        else:
+            cart = carts.first()
+            for extra_cart in carts[1:]:
+                merge_carts(extra_cart, cart)
+                extra_cart.delete()
     return cart
 
 
 def resolve_food_type(type_param):
     if not type_param:
         return None
+    if str(type_param).lower() == "custom":
+        return "custom"
     return FoodType.objects.filter(
         Q(slug=type_param) | Q(name__iexact=type_param)
     ).first()
@@ -152,11 +197,10 @@ def merge_guest_cart_to_user(user, session_key):
     """
     from django.db import transaction
 
-    try:
-        # Get guest cart
-        guest_cart = Cart.objects.get(session_key=session_key)
-    except Cart.DoesNotExist:
-        # No guest cart exists, just return user's cart
+    guest_carts = Cart.objects.filter(session_key=session_key).order_by(
+        "-updated_at", "-id"
+    )
+    if not guest_carts.exists():
         user_cart, _ = Cart.objects.get_or_create(user=user)
         return user_cart
 
@@ -164,39 +208,9 @@ def merge_guest_cart_to_user(user, session_key):
     user_cart, _ = Cart.objects.get_or_create(user=user)
 
     with transaction.atomic():
-        # Merge CartPlans (meal plans)
-        for guest_plan in guest_cart.plans.all():
-            # Check if user already has this meal plan in cart
-            existing_plan = user_cart.plans.filter(
-                meal_plan=guest_plan.meal_plan
-            ).first()
-            if existing_plan:
-                # Increase quantity
-                existing_plan.quantity += guest_plan.quantity
-                existing_plan.save()
-            else:
-                # Move the plan to user cart
-                guest_plan.cart = user_cart
-                guest_plan.save()
-
-        # Merge CartItems (individual food items)
-        for guest_item in guest_cart.items.all():
-            # Check if user already has this food item with same cart_plan
-            existing_item = user_cart.items.filter(
-                food_item=guest_item.food_item, cart_plan=guest_item.cart_plan
-            ).first()
-
-            if existing_item:
-                # Increase quantity
-                existing_item.quantity += guest_item.quantity
-                existing_item.save()
-            else:
-                # Move the item to user cart
-                guest_item.cart = user_cart
-                guest_item.save()
-
-        # Delete the now-empty guest cart
-        guest_cart.delete()
+        for guest_cart in guest_carts:
+            merge_carts(guest_cart, user_cart)
+            guest_cart.delete()
 
     return user_cart
 
@@ -346,6 +360,8 @@ class MealsByTypeCategoryView(generics.ListAPIView):
         qs = FoodItem.objects.filter(is_available=True)
         if food_type:
             resolved = resolve_food_type(food_type)
+            if resolved == "custom":
+                return qs.filter(category=category) if category else qs
             if not resolved:
                 return FoodItem.objects.none()
             qs = qs.filter(food_type=resolved)
