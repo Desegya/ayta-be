@@ -13,6 +13,7 @@ from django.conf import settings
 from django.http import Http404
 from django.shortcuts import get_object_or_404
 from django.db import transaction
+from django.db.models import Q
 from django.urls import reverse
 import requests
 from rest_framework.request import Request
@@ -92,6 +93,7 @@ class ImageUploadView(APIView):
 
 from .models import (
     CartPlan,
+    FoodType,
     FoodItem,
     Cart,
     CartItem,
@@ -125,6 +127,14 @@ def get_or_create_cart(request):
         session_key = request.session.session_key
         cart, created = Cart.objects.get_or_create(session_key=session_key)
     return cart
+
+
+def resolve_food_type(type_param):
+    if not type_param:
+        return None
+    return FoodType.objects.filter(
+        Q(slug=type_param) | Q(name__iexact=type_param)
+    ).first()
 
 
 def get_guest_session_key(request):
@@ -218,9 +228,9 @@ class TotalCartMealsView(APIView):
 
 class AdminDefinedMealsByDayView(APIView):
     """
-    Returns admin-defined meals for a given plan type (lean/dense) and size (15/21).
+    Returns admin-defined meals for a given food type and size (15/21).
     Groups meals by day.
-    Query params: type=lean|dense, size=15|21
+    Query params: type=<food type slug or name>, size=15|21
     """
 
     permission_classes = [AllowAny]
@@ -234,9 +244,10 @@ class AdminDefinedMealsByDayView(APIView):
                 {"error": "Invalid size parameter."}, status=status.HTTP_400_BAD_REQUEST
             )
 
-        if plan_type not in ("lean", "dense"):
+        food_type = resolve_food_type(plan_type)
+        if not food_type:
             return Response(
-                {"error": "Invalid or missing 'type' parameter (lean|dense)."},
+                {"error": "Invalid or missing 'type' parameter."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -252,7 +263,7 @@ class AdminDefinedMealsByDayView(APIView):
             )
 
         plan = (
-            MealPlan.objects.filter(name=plan_name, meals__food_type=plan_type)
+            MealPlan.objects.filter(name=plan_name, meals__food_type=food_type)
             .distinct()
             .first()
         )
@@ -261,7 +272,7 @@ class AdminDefinedMealsByDayView(APIView):
                 {"error": "No such plan found."}, status=status.HTTP_404_NOT_FOUND
             )
 
-        meals = plan.meals.filter(food_type=plan_type).order_by("id")
+        meals = plan.meals.filter(food_type=food_type, is_available=True).order_by("id")
         meals_per_day = size // days
         grouped = defaultdict(list)
         for i, meal in enumerate(meals):
@@ -280,7 +291,7 @@ class MealPlanMealsView(APIView):
     def get(self, request, slug):
         plan = get_object_or_404(MealPlan, slug=slug)
         plan_serializer = MealPlanSimpleSerializer(plan)
-        meals = plan.meals.all()
+        meals = plan.meals.filter(is_available=True)
         meals_serializer = FoodItemSerializer(meals, many=True)
         return Response(
             {"meal_plan": plan_serializer.data, "meals": meals_serializer.data},
@@ -295,7 +306,9 @@ class DenseMealPlansView(generics.ListAPIView):
     serializer_class = MealPlanSimpleSerializer
 
     def get_queryset(self):
-        return MealPlan.objects.filter(density="dense")
+        return MealPlan.objects.filter(
+            Q(density__slug="dense") | Q(density__name__iexact="dense")
+        )
 
 
 class LeanMealPlansView(generics.ListAPIView):
@@ -305,7 +318,9 @@ class LeanMealPlansView(generics.ListAPIView):
     serializer_class = MealPlanSimpleSerializer
 
     def get_queryset(self):
-        return MealPlan.objects.filter(density="lean")
+        return MealPlan.objects.filter(
+            Q(density__slug="lean") | Q(density__name__iexact="lean")
+        )
 
 
 class MealPlanByTypeView(generics.ListAPIView):
@@ -314,7 +329,10 @@ class MealPlanByTypeView(generics.ListAPIView):
 
     def get_queryset(self):
         plan_type = self.request.GET.get("type")
-        return MealPlan.objects.filter(meals__food_type=plan_type).distinct()
+        food_type = resolve_food_type(plan_type)
+        if not food_type:
+            return MealPlan.objects.none()
+        return MealPlan.objects.filter(meals__food_type=food_type).distinct()
 
 
 class MealsByTypeCategoryView(generics.ListAPIView):
@@ -324,9 +342,12 @@ class MealsByTypeCategoryView(generics.ListAPIView):
     def get_queryset(self):
         food_type = self.request.GET.get("type")
         category = self.request.GET.get("category")
-        qs = FoodItem.objects.all()
+        qs = FoodItem.objects.filter(is_available=True)
         if food_type:
-            qs = qs.filter(food_type=food_type)
+            resolved = resolve_food_type(food_type)
+            if not resolved:
+                return FoodItem.objects.none()
+            qs = qs.filter(food_type=resolved)
         if category:
             qs = qs.filter(category=category)
         return qs
@@ -358,7 +379,7 @@ class CustomMealSelectionView(APIView):
 
 class FoodItemListView(generics.ListAPIView):
     permission_classes = [AllowAny]
-    queryset = FoodItem.objects.all()
+    queryset = FoodItem.objects.filter(is_available=True)
     serializer_class = FoodItemListSerializer
 
 
@@ -367,7 +388,10 @@ class LeanFoodItemListView(generics.ListAPIView):
     serializer_class = FoodItemListSerializer
 
     def get_queryset(self):
-        return FoodItem.objects.filter(food_type="lean")
+        return FoodItem.objects.filter(
+            Q(food_type__slug="lean") | Q(food_type__name__iexact="lean"),
+            is_available=True,
+        )
 
 
 class DenseFoodItemListView(generics.ListAPIView):
@@ -375,12 +399,15 @@ class DenseFoodItemListView(generics.ListAPIView):
     serializer_class = FoodItemListSerializer
 
     def get_queryset(self):
-        return FoodItem.objects.filter(food_type="dense")
+        return FoodItem.objects.filter(
+            Q(food_type__slug="dense") | Q(food_type__name__iexact="dense"),
+            is_available=True,
+        )
 
 
 class FoodItemDetailView(generics.RetrieveAPIView):
     permission_classes = [AllowAny]
-    queryset = FoodItem.objects.all()
+    queryset = FoodItem.objects.filter(is_available=True)
     serializer_class = FoodItemDetailSerializer
 
 
@@ -837,7 +864,7 @@ class OrderSummaryView(APIView):
     Returns receipt-like order summary for the current user's cart.
 
     Rules:
-    - If cart contains exactly one CartPlan and zero custom items => package_type = plan density (Lean/Dense)
+    - If cart contains exactly one CartPlan and zero custom items => package_type = plan food type
       and plan_duration is included.
     - Otherwise package_type = "custom" and plan_duration is omitted.
     - total_meals is the total number of individual meals in the cart:
@@ -867,7 +894,7 @@ class OrderSummaryView(APIView):
             package_type = (
                 plan.get_density_display()
                 if hasattr(plan, "get_density_display")
-                else (plan.density or "custom")
+                else (plan.density.name if getattr(plan, "density_id", None) else "custom")
             )
             include_plan_duration = True
             plan_duration = f"{plan.days} Days"

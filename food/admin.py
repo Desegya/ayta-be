@@ -5,6 +5,7 @@ from django.contrib import admin
 from django.utils.html import format_html
 from .models import (
     CartPlan,
+    FoodType,
     FoodItem,
     MealPlan,
     UserMealPlan,
@@ -79,11 +80,12 @@ class FoodItemAdmin(admin.ModelAdmin):
         "price",
         "calories",
         "food_type",
+        "is_available",
         "category",
         "spice_level_display",
         "image_preview",
     )
-    list_filter = ("food_type", "category", "spice_level")
+    list_filter = ("food_type", "category", "spice_level", "is_available")
     search_fields = ("name", "description", "ingredients")
     readonly_fields = ("image_preview", "spice_level_display")
     fieldsets = (
@@ -91,7 +93,15 @@ class FoodItemAdmin(admin.ModelAdmin):
         ("Nutrition", {"fields": ("calories", "protein", "carbohydrates", "fat")}),
         (
             "Classification",
-            {"fields": ("food_type", "category", "spice_level", "image")},
+            {
+                "fields": (
+                    "food_type",
+                    "category",
+                    "is_available",
+                    "spice_level",
+                    "image",
+                )
+            },
         ),
         ("Preview", {"fields": ("image_preview", "spice_level_display")}),
     )
@@ -120,6 +130,14 @@ class FoodItemAdmin(admin.ModelAdmin):
         return spice_emojis.get(obj.spice_level, f"Level {obj.spice_level}")
 
     spice_level_display.short_description = "Spice Level"
+
+
+@admin.register(FoodType)
+class FoodTypeAdmin(admin.ModelAdmin):
+    list_display = ("name", "slug", "is_active")
+    list_filter = ("is_active",)
+    search_fields = ("name", "slug")
+    prepopulated_fields = {"slug": ("name",)}
 
 
 @admin.register(MealPlan)

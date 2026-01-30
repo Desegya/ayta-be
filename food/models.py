@@ -12,11 +12,24 @@ from cloudinary.models import CloudinaryField
 
 
 # ---------- FoodItem unchanged ----------
+class FoodType(models.Model):
+    name = models.CharField(max_length=50, unique=True)
+    slug = models.SlugField(max_length=60, unique=True, blank=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ("name",)
+
+    def __str__(self):
+        return self.name
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(self.name)
+        super().save(*args, **kwargs)
+
+
 class FoodItem(models.Model):
-    FOOD_TYPE_CHOICES = [
-        ("lean", "Lean"),
-        ("dense", "Dense"),
-    ]
     CATEGORY_CHOICES = [
         ("breakfast", "Breakfast"),
         ("lunch_dinner", "Lunch & Dinner"),
@@ -37,9 +50,12 @@ class FoodItem(models.Model):
     protein = models.FloatField(help_text="g Protein")
     carbohydrates = models.FloatField(help_text="g Carbohydrates")
     fat = models.FloatField(help_text="g Fat")
-    food_type = models.CharField(max_length=10, choices=FOOD_TYPE_CHOICES)
+    food_type = models.ForeignKey(
+        FoodType, on_delete=models.PROTECT, related_name="food_items"
+    )
     category = models.CharField(max_length=20, choices=CATEGORY_CHOICES)
     image = CloudinaryField("image", blank=True, null=True)
+    is_available = models.BooleanField(default=True)
     spice_level = models.PositiveSmallIntegerField(
         choices=SPICE_LEVEL_CHOICES,
         null=True,
@@ -59,13 +75,14 @@ class FoodItem(models.Model):
 
 # ---------- MealPlan (normalized) ----------
 class MealPlan(models.Model):
-    DENSITY_CHOICES = [("lean", "Lean"), ("dense", "Dense")]
     meal_count = models.PositiveSmallIntegerField()
     description = models.CharField(
         max_length=200, blank=True, help_text="A short description for the meal plan."
     )
     days = models.PositiveSmallIntegerField()
-    density = models.CharField(max_length=10, choices=DENSITY_CHOICES)
+    density = models.ForeignKey(
+        FoodType, on_delete=models.PROTECT, related_name="meal_plans"
+    )
     is_custom = models.BooleanField(default=False)
     meals = models.ManyToManyField(FoodItem, blank=True)
     slug = models.SlugField(max_length=80, unique=True, blank=True)
@@ -75,7 +92,7 @@ class MealPlan(models.Model):
         ordering = ("meal_count", "days", "density")
 
     def get_density_display(self) -> str:
-        return dict(self.DENSITY_CHOICES).get(self.density, str(self.density))
+        return self.density.name if self.density_id else str(self.density)
 
     def __str__(self):
         return (
@@ -85,7 +102,10 @@ class MealPlan(models.Model):
     def save(self, *args, **kwargs):
         # build a predictable slug for the canonical plans; custom plans can override name
         if not self.slug:
-            self.slug = slugify(f"{self.meal_count}-{self.days}-{self.density}")
+            density_slug = ""
+            if self.density_id:
+                density_slug = self.density.slug or self.density.name
+            self.slug = slugify(f"{self.meal_count}-{self.days}-{density_slug}")
         super().save(*args, **kwargs)
 
     def validate_meal_count_consistency(self):
@@ -99,7 +119,7 @@ class MealPlan(models.Model):
     def fill_meals_from_queryset(self, qs, replace_existing=False):
         """
         Helper to populate meals for this plan from a queryset `qs` of FoodItem.
-        `qs` should typically be filtered by density (lean/dense) and possibly category.
+        `qs` should typically be filtered by food type and possibly category.
         """
         if replace_existing:
             self.meals.clear()

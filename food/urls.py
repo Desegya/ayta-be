@@ -4,8 +4,6 @@ from .views import (
     AddCustomSelectionView,
     AddPlanToCartView,
     FoodItemListView,
-    LeanFoodItemListView,
-    DenseFoodItemListView,
     FoodItemDetailView,
     CartView,
     OrderSummaryView,
@@ -15,8 +13,6 @@ from .views import (
     MealsByTypeCategoryView,
     CustomMealSelectionView,
     AdminDefinedMealsByDayView,
-    DenseMealPlansView,
-    LeanMealPlansView,
     MealPlanMealsView,
     TotalCartMealsView,
     UpdateCustomCartItemView,
@@ -29,8 +25,7 @@ from .views import (
 
 urlpatterns = [
     path("meals/", FoodItemListView.as_view(), name="meal-list"),
-    path("meals/lean/", LeanFoodItemListView.as_view(), name="lean-meal-list"),
-    path("meals/dense/", DenseFoodItemListView.as_view(), name="dense-meal-list"),
+    path("meals/by-type/", MealsByTypeCategoryView.as_view(), name="meals-by-type"),
     path("meals/<int:pk>/", FoodItemDetailView.as_view(), name="meal-detail"),
     path("cart/", CartView.as_view(), name="cart-view"),
     path("cart/add-plan/", AddPlanToCartView.as_view(), name="add-plan-to-cart"),
@@ -71,10 +66,7 @@ urlpatterns = [
         CustomMealSelectionView.as_view(),
         name="custom-meal-selection",
     ),
-    path("plans/dense/", DenseMealPlansView.as_view(), name="dense-meal-plans"),
-    path("plans/lean/", LeanMealPlansView.as_view(), name="lean-meal-plans"),
     path(
         "plans/<slug:slug>/meals/", MealPlanMealsView.as_view(), name="meal-plan-meals"
     ),
-    path("upload/image/", ImageUploadView.as_view(), name="upload-image"),
 ]
