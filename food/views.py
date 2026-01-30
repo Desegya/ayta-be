@@ -234,6 +234,7 @@ class UserPastOrdersView(APIView):
 
 class TotalCartMealsView(APIView):
     permission_classes = [AllowAny]
+    authentication_classes = [CookieJWTAuthentication, JWTAuthentication]
 
     def get(self, request):
         cart = get_or_create_cart(request)
@@ -439,6 +440,7 @@ class FoodTypeListView(generics.ListAPIView):
 # Cart Views
 class CartView(APIView):
     permission_classes = [AllowAny]
+    authentication_classes = [CookieJWTAuthentication, JWTAuthentication]
 
     def get(self, request):
         cart = get_or_create_cart(request)
@@ -454,6 +456,7 @@ class AddPlanToCartView(APIView):
     """
 
     permission_classes = [AllowAny]
+    authentication_classes = [CookieJWTAuthentication, JWTAuthentication]
 
     def post(self, request):
         plan_id = request.data.get("plan_id")
@@ -538,6 +541,7 @@ class UpdateCustomCartItemView(APIView):
     """
 
     permission_classes = [AllowAny]
+    authentication_classes = [CookieJWTAuthentication, JWTAuthentication]
 
     def post(self, request):
         food_id = request.data.get("food_item")
@@ -613,6 +617,7 @@ class AddCustomSelectionView(APIView):
     """
 
     permission_classes = [AllowAny]
+    authentication_classes = [CookieJWTAuthentication, JWTAuthentication]
 
     def post(self, request):
         meal_ids = request.data.get("meal_ids")
@@ -676,6 +681,7 @@ class RemoveFromCartView(APIView):
     """
 
     permission_classes = [AllowAny]
+    authentication_classes = [CookieJWTAuthentication, JWTAuthentication]
 
     def post(self, request):
         cart = get_or_create_cart(request)
@@ -722,6 +728,7 @@ class RemoveFromCartView(APIView):
 
 class CheckoutView(APIView):
     permission_classes = [AllowAny]  # Allow both authenticated and guest users
+    authentication_classes = [CookieJWTAuthentication, JWTAuthentication]
 
     def post(self, request):
         # parse payload (you already have CheckoutSerializer — reuse it)
@@ -898,6 +905,7 @@ class OrderSummaryView(APIView):
     """
 
     permission_classes = [AllowAny]
+    authentication_classes = [CookieJWTAuthentication, JWTAuthentication]
 
     def get(self, request):
         return self._get_summary(request)
